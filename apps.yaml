@@ -1,0 +1,10 @@
+# apps.yaml - Apps to patch with ReVanced
+# Each app needs:
+#   - name: Human-readable name
+#   - package: Android package name for apkeep
+#   - patches_path: Path in revanced-patches source for version discovery
+
+apps:
+  - name: "YouTube"
+    package: "com.google.android.youtube"
+    patches_path: "youtube"
