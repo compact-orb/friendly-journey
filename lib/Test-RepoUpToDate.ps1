@@ -29,11 +29,11 @@ try {
     $storedVersion = $entry.patchesVersion
 
     if ($storedVersion -eq $LatestPatchesVersion) {
-        Write-Output -InputObject "Repo is up to date (patches version: $storedVersion)"
+        Write-Host -Object "Repo is up to date (patches version: $storedVersion)"
         return $true
     }
     else {
-        Write-Output -InputObject "Repo outdated: $storedVersion -> $LatestPatchesVersion"
+        Write-Host -Object "Repo outdated: $storedVersion -> $LatestPatchesVersion"
         return $false
     }
 }

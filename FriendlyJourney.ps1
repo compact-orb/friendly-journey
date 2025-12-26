@@ -45,7 +45,7 @@ if (-not $ApkKeystorePath) {
         }
         $ApkKeystorePath = Join-Path -Path $TempPath -ChildPath "Keystore.keystore"
         [System.IO.File]::WriteAllBytes($ApkKeystorePath, [Convert]::FromBase64String($env:APK_KEYSTORE_BASE64))
-        Write-Output -InputObject "Decoded APK keystore from environment"
+        Write-Host -Object "Decoded APK keystore from environment"
     }
     else {
         $ApkKeystorePath = Join-Path -Path $ScriptRoot -ChildPath "Keystore.keystore"
@@ -60,7 +60,7 @@ if (-not $RepoKeystorePath) {
         }
         $RepoKeystorePath = Join-Path -Path $TempPath -ChildPath "RepoKeystore.keystore"
         [System.IO.File]::WriteAllBytes($RepoKeystorePath, [Convert]::FromBase64String($env:REPO_KEYSTORE_BASE64))
-        Write-Output -InputObject "Decoded repo keystore from environment"
+        Write-Host -Object "Decoded repo keystore from environment"
     }
     else {
         $RepoKeystorePath = Join-Path -Path $ScriptRoot -ChildPath "RepoKeystore.keystore"
@@ -74,7 +74,7 @@ if (-not (Test-Path -Path $TempPath)) {
 }
 
 # Load configuration
-Write-Output -InputObject "Loading configuration from $ConfigPath..."
+Write-Host -Object "Loading configuration from $ConfigPath..."
 $configContent = Get-Content -Path $ConfigPath -Raw
 # Simple YAML parsing for our format
 $apps = @()
@@ -94,22 +94,22 @@ foreach ($line in $configContent -split "`n") {
 }
 if ($currentApp) { $apps += $currentApp }
 
-Write-Output -InputObject "Found $($apps.Count) app(s) to patch"
+Write-Host -Object "Found $($apps.Count) app(s) to patch"
 
 # Install tools
-Write-Output -InputObject "`n=== Installing Tools ==="
+Write-Host -Object "`n=== Installing Tools ==="
 & "$ScriptRoot/lib/Install-Tools.ps1" -BinPath "$TempPath/bin"
 
 # Download patches
-Write-Output -InputObject "`n=== Downloading ReVanced Patches ==="
+Write-Host -Object "`n=== Downloading ReVanced Patches ==="
 $patchesInfo = & "$ScriptRoot/lib/Get-RevancedPatches.ps1" -OutputPath $TempPath
 
 # Check if repo is up to date
-Write-Output -InputObject "`n=== Checking Repository Status ==="
+Write-Host -Object "`n=== Checking Repository Status ==="
 
 # If using Bunny Storage, download entry.json from remote
 if ($useBunnyStorage) {
-    Write-Output -InputObject "Checking remote repo on Bunny Storage..."
+    Write-Host -Object "Checking remote repo on Bunny Storage..."
     if (-not (Test-Path -Path $RepoPath)) {
         New-Item -Path $RepoPath -ItemType Directory -Force | Out-Null
     }
@@ -127,7 +127,7 @@ $isUpToDate = & "$ScriptRoot/lib/Test-RepoUpToDate.ps1" `
     -LatestPatchesVersion $patchesInfo.Version
 
 if ($isUpToDate) {
-    Write-Output -InputObject "Repository is up to date. Nothing to do."
+    Write-Host -Object "Repository is up to date. Nothing to do."
     # Cleanup
     Remove-Item -Path $patchesInfo.SourceZipPath -Force -ErrorAction SilentlyContinue
     Remove-Item -Path $patchesInfo.RvpPath -Force -ErrorAction SilentlyContinue
@@ -140,9 +140,9 @@ if (-not (Test-Path -Path $RepoPath)) {
 }
 
 # Patch each app
-Write-Output -InputObject "`n=== Patching Apps ==="
+Write-Host -Object "`n=== Patching Apps ==="
 foreach ($app in $apps) {
-    Write-Output -InputObject "`n--- Patching $($app.name) ---"
+    Write-Host -Object "`n--- Patching $($app.name) ---"
 
     # Find compatible version
     $compatibleVersion = & "$ScriptRoot/lib/Get-CompatibleVersion.ps1" `
@@ -161,11 +161,11 @@ foreach ($app in $apps) {
     # Move to repo
     $repoApkPath = Join-Path -Path $RepoPath -ChildPath "$($app.package).apk"
     Move-Item -Path $patchedApk -Destination $repoApkPath -Force
-    Write-Output -InputObject "Moved to $repoApkPath"
+    Write-Host -Object "Moved to $repoApkPath"
 }
 
 # Update F-Droid repo
-Write-Output -InputObject "`n=== Updating F-Droid Repository ==="
+Write-Host -Object "`n=== Updating F-Droid Repository ==="
 & "$ScriptRoot/lib/Update-FDroidRepo.ps1" `
     -RepoPath $RepoPath `
     -PatchesVersion $patchesInfo.Version `
@@ -173,7 +173,7 @@ Write-Output -InputObject "`n=== Updating F-Droid Repository ==="
 
 # Sync to Bunny Storage
 if ($useBunnyStorage) {
-    Write-Output -InputObject "`n=== Syncing to Bunny Storage ==="
+    Write-Host -Object "`n=== Syncing to Bunny Storage ==="
     & "$ScriptRoot/lib/Sync-BunnyRepo.ps1" `
         -LocalRepoPath $RepoPath `
         -RemoteBasePath "repo" `
@@ -182,13 +182,13 @@ if ($useBunnyStorage) {
         -Endpoint $BunnyEndpoint
 }
 else {
-    Write-Output -InputObject "`n=== Bunny Storage not configured, skipping sync ==="
+    Write-Host -Object "`n=== Bunny Storage not configured, skipping sync ==="
 }
 
 # Cleanup
-Write-Output -InputObject "`n=== Cleanup ==="
+Write-Host -Object "`n=== Cleanup ==="
 Remove-Item -Path $patchesInfo.SourceZipPath -Force -ErrorAction SilentlyContinue
 Remove-Item -Path $patchesInfo.RvpPath -Force -ErrorAction SilentlyContinue
 
-Write-Output -InputObject "`n=== Done ==="
-Write-Output -InputObject "Repository updated with patches version $($patchesInfo.Version)"
+Write-Host -Object "`n=== Done ==="
+Write-Host -Object "Repository updated with patches version $($patchesInfo.Version)"

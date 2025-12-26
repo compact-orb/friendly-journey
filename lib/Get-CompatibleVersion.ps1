@@ -61,7 +61,7 @@ foreach ($file in $ktFiles) {
 Remove-Item -Path $extractPath -Recurse -Force
 
 if ($allVersions.Count -eq 0) {
-    Write-Output -InputObject "No version constraints found, using latest"
+    Write-Host -Object "No version constraints found, using latest"
     return $null
 }
 
@@ -78,5 +78,5 @@ if ($commonVersions.Count -eq 0) {
 
 # Return the latest compatible version
 $latestVersion = $commonVersions | Sort-Object { [Version]$_ } -Descending | Select-Object -First 1
-Write-Output -InputObject "Latest compatible version for ${PackageName}: $latestVersion"
+Write-Host -Object "Latest compatible version for ${PackageName}: $latestVersion"
 return $latestVersion

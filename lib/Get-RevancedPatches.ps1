@@ -22,7 +22,7 @@ if ($env:GITHUB_TOKEN) {
 $repo = "ReVanced/revanced-patches"
 $releasesUrl = "https://api.github.com/repos/$repo/releases/latest"
 
-Write-Output -InputObject "Fetching latest revanced-patches release..."
+Write-Host -Object "Fetching latest revanced-patches release..."
 $release = Invoke-RestMethod -Uri $releasesUrl -Headers $headers
 
 # Download .rvp file
@@ -37,16 +37,16 @@ if (-not (Test-Path -Path $OutputPath)) {
 }
 
 $rvpPath = Join-Path -Path $OutputPath -ChildPath $rvpAsset.name
-Write-Output -InputObject "Downloading $($rvpAsset.name)..."
+Write-Host -Object "Downloading $($rvpAsset.name)..."
 Invoke-WebRequest -Uri $rvpAsset.browser_download_url -OutFile $rvpPath
 
 # Download source zip for version discovery
 $sourceZipName = "patches-$($release.tag_name)-source.zip"
 $sourceZipPath = Join-Path -Path $OutputPath -ChildPath $sourceZipName
-Write-Output -InputObject "Downloading source zip..."
+Write-Host -Object "Downloading source zip..."
 Invoke-WebRequest -Uri $release.zipball_url -OutFile $sourceZipPath -Headers $headers
 
-Write-Output -InputObject "Downloaded patches version: $($release.tag_name)"
+Write-Host -Object "Downloaded patches version: $($release.tag_name)"
 
 # Return version info
 return @{

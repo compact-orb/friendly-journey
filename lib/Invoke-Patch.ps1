@@ -34,7 +34,7 @@ New-Item -Path $workDir -ItemType Directory | Out-Null
 
 try {
     # Download APK
-    Write-Output -InputObject "Downloading $PackageName..."
+    Write-Host -Object "Downloading $PackageName..."
     $apkeepArgs = @("--app", $PackageName, "--options", "split_apk=true", $workDir)
     if ($Version) {
         $apkeepArgs = @("--app", "$PackageName@$Version", "--options", "split_apk=true", $workDir)
@@ -47,7 +47,7 @@ try {
 
     if ($xapk) {
         # Merge split APK
-        Write-Output -InputObject "Merging split APK..."
+        Write-Host -Object "Merging split APK..."
         $mergeDir = Join-Path -Path $workDir -ChildPath "merge"
         unzip -q $xapk.FullName -d $mergeDir | Out-Null
 
@@ -63,7 +63,7 @@ try {
     }
 
     # Patch
-    Write-Output -InputObject "Patching $PackageName..."
+    Write-Host -Object "Patching $PackageName..."
     $outputApk = Join-Path -Path $OutputPath -ChildPath "$PackageName.apk"
 
     # Build revanced-cli arguments
@@ -83,7 +83,7 @@ try {
 
     java @cliArgs | Out-Null
 
-    Write-Output -InputObject "Patched APK: $outputApk"
+    Write-Host -Object "Patched APK: $outputApk"
     return $outputApk
 }
 finally {
