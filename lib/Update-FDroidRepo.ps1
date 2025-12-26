@@ -109,8 +109,8 @@ if ($KeystorePath -and (Test-Path $KeystorePath)) {
 
         # Sign with jarsigner (keystore has no password)
         jarsigner -keystore $KeystorePath `
-            -storepass "" `
-            -keypass "" `
+            -storepass "password" `
+            -keypass "password" `
             -signedjar $jarPath `
             $unsignedJar `
             $KeyAlias 2>&1 | Out-Null

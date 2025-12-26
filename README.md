@@ -45,10 +45,10 @@ apps:
 
 ```bash
 # APK signing keystore
-keytool -genkey -v -keystore apk.keystore -alias key -keyalg EC -groupname secp256r1 -validity 10000
+keytool -genkey -v -keystore apk.keystore -alias key -keyalg EC -groupname secp256r1 -validity 10000 -storepass password -keypass password -dname "CN=FriendlyJourney"
 
 # Repo signing keystore
-keytool -genkey -v -keystore repo.keystore -alias key -keyalg EC -groupname secp256r1 -validity 10000
+keytool -genkey -v -keystore repo.keystore -alias key -keyalg EC -groupname secp256r1 -validity 10000 -storepass password -keypass password -dname "CN=FriendlyJourney"
 
 # Encode for GitHub secrets
 base64 -w 0 apk.keystore
