@@ -9,6 +9,7 @@ on:
 
 jobs:
   patch:
+    name: Patch ReVanced Apps
     runs-on: ubuntu-24.04
     
     steps:
