@@ -98,6 +98,27 @@ if ($KeystorePath -and (Test-Path $KeystorePath)) {
     $jarTempDir = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath "fdroid-jar-$(Get-Random)"
     New-Item -Path $jarTempDir -ItemType Directory | Out-Null
 
+    # Download Bouncy Castle provider if needed
+    # Fetch latest version
+    try {
+        $response = Invoke-RestMethod -Uri "https://search.maven.org/solrsearch/select?q=g:org.bouncycastle+AND+a:bcprov-jdk18on&rows=1&wt=json"
+        $bcVersion = $response.response.docs[0].latestVersion
+        Write-Output -InputObject "Latest Bouncy Castle version: $bcVersion"
+    }
+    catch {
+        Write-Warning -Message "Failed to fetch latest Bouncy Castle version, falling back to 1.78.1"
+        $bcVersion = "1.78.1"
+    }
+
+    $bcJar = "bcprov-jdk18on-$bcVersion.jar"
+    $bcUrl = "https://repo1.maven.org/maven2/org/bouncycastle/bcprov-jdk18on/$bcVersion/$bcJar"
+    $bcPath = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath $bcJar
+
+    if (-not (Test-Path -Path $bcPath)) {
+        Write-Output -InputObject "Downloading Bouncy Castle provider..."
+        Invoke-WebRequest -Uri $bcUrl -OutFile $bcPath
+    }
+
     try {
         Copy-Item -Path $indexPath -Destination $jarTempDir
 
@@ -107,10 +128,12 @@ if ($KeystorePath -and (Test-Path $KeystorePath)) {
         jar -cf $unsignedJar "index-v1.json" 2>&1 | Out-Null
         Pop-Location
 
-        # Sign with jarsigner (keystore has no password)
-        jarsigner -keystore $KeystorePath `
-            -storepass "password" `
-            -keypass "password" `
+        # Sign with jarsigner using BKS provider (password-less)
+        & jarsigner -keystore $KeystorePath `
+            -storetype "BKS" `
+            -providerpath $bcPath `
+            -provider "org.bouncycastle.jce.provider.BouncyCastleProvider" `
+            -protected `
             -signedjar $jarPath `
             $unsignedJar `
             $KeyAlias 2>&1 | Out-Null

@@ -43,16 +43,30 @@ apps:
 
 ### Creating Keystores
 
+You need two keystores:
+
+1. **APK Keystore**: For signing the patched APKs (ReVanced).
+2. **Repo Keystore**: For signing the F-Droid repository index.
+
+Both can be generated using the BKS format (password-less) for seamless automation.
+
+#### Using the helper script
+
+```powershell
+# Generate APK signing keystore
+./lib/Generate-Keystore.ps1 -OutputPath "./ApkKeystore.keystore"
+
+# Generate Repo signing keystore
+./lib/Generate-Keystore.ps1 -OutputPath "./RepoKeystore.keystore"
+```
+
+#### Encoding for Environment Variables
+
+Once generated, encode them to Base64 to set as GitHub Secrets or environment variables (`APK_KEYSTORE_BASE64`, `REPO_KEYSTORE_BASE64`).
+
 ```bash
-# APK signing keystore
-keytool -genkey -v -keystore apk.keystore -alias key -keyalg EC -groupname secp256r1 -validity 10000 -storepass password -keypass password -dname "CN=FriendlyJourney"
-
-# Repo signing keystore
-keytool -genkey -v -keystore repo.keystore -alias key -keyalg EC -groupname secp256r1 -validity 10000 -storepass password -keypass password -dname "CN=FriendlyJourney"
-
-# Encode for GitHub secrets
-base64 -w 0 apk.keystore
-base64 -w 0 repo.keystore
+base64 -w 0 ApkKeystore.keystore
+base64 -w 0 RepoKeystore.keystore
 ```
 
 ## F-Droid Repository
