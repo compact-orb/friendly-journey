@@ -3,8 +3,9 @@
     Updates the F-Droid repository with patched APKs.
 
 .DESCRIPTION
-    Generates index-v1.json and optionally signs it to index-v1.jar.
-    Stores patches version in entry.json for version checking.
+    Uses the official fdroidserver Docker image to generate and sign the
+    F-Droid repository index. Stores patches version in entry.json for
+    version checking.
 #>
 
 param(
@@ -14,134 +15,104 @@ param(
     [Parameter(Mandatory)]
     [string]$PatchesVersion,
 
-    [string]$KeystorePath,  # Optional: keystore for signing
+    [string]$KeystorePath,  # Optional: JKS keystore for signing
 
     [string]$KeyAlias = "release",
 
-    [string]$RepoName = "ReVanced Apps",
+    [string]$RepoName = "friendly-journey",
 
-    [string]$RepoDescription = "ReVanced patched apps"
+    [string]$RepoDescription = "friendly-journey patched apps"
 )
 
 $ErrorActionPreference = "Stop"
 $PSNativeCommandUseErrorActionPreference = $true
+
+# Constants
+$KeystorePassword = "password"
+$FdroidImage = "registry.gitlab.com/fdroid/docker-executable-fdroidserver:latest"
 
 # Ensure repo directory exists
 if (-not (Test-Path -Path $RepoPath)) {
     New-Item -Path $RepoPath -ItemType Directory -Force | Out-Null
 }
 
-# Get all APKs in repo
-$apkFiles = Get-ChildItem -Path $RepoPath -Filter "*.apk"
+# Resolve to absolute path
+$RepoPath = Resolve-Path -Path $RepoPath
 
-# Build app list
-$apps = @{}
-$packages = @{}
-
-foreach ($apk in $apkFiles) {
-    # Extract basic info from filename (package.apk)
-    $packageName = [System.IO.Path]::GetFileNameWithoutExtension($apk.Name)
-
-    $appInfo = @{
-        packageName          = $packageName
-        suggestedVersionCode = 1
-        suggestedVersionName = $PatchesVersion
-        name                 = $packageName
-        summary              = "ReVanced patched $packageName"
-        description          = "Patched with ReVanced patches $PatchesVersion"
-        license              = "Unknown"
-        icon                 = ""
-    }
-
-    $apps[$packageName] = $appInfo
-
-    # Package info
-    $apkHash = (Get-FileHash -Path $apk.FullName -Algorithm SHA256).Hash.ToLower()
-    $apkSize = $apk.Length
-
-    $packages[$packageName] = @(
-        @{
-            versionCode = 1
-            versionName = $PatchesVersion
-            hash        = $apkHash
-            hashType    = "sha256"
-            size        = $apkSize
-            apkName     = $apk.Name
-            added       = [int](Get-Date -UFormat %s)
-        }
-    )
+# Check for container runtime
+$containerRuntime = if (Get-Command -Name "podman" -ErrorAction SilentlyContinue) {
+    "podman"
 }
-
-# Build index
-$index = @{
-    repo     = @{
-        name        = $RepoName
-        description = $RepoDescription
-        timestamp   = [int](Get-Date -UFormat %s) * 1000
-        version     = 21
-    }
-    apps     = $apps.Values
-    packages = $packages
-}
-
-# Write index-v1.json
-$indexPath = Join-Path -Path $RepoPath -ChildPath "index-v1.json"
-$index | ConvertTo-Json -Depth 10 | Set-Content -Path $indexPath
-Write-Output -InputObject "Generated $indexPath"
-
-# Sign index to JAR if keystore provided
-if ($KeystorePath -and (Test-Path $KeystorePath)) {
-    Write-Output -InputObject "Signing index with keystore..."
-    $jarPath = Join-Path -Path $RepoPath -ChildPath "index-v1.jar"
-
-    # Create temporary directory for JAR contents
-    $jarTempDir = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath "fdroid-jar-$(Get-Random)"
-    New-Item -Path $jarTempDir -ItemType Directory | Out-Null
-
-    # Download Bouncy Castle provider if needed
-    $bcVersion = "1.80"
-    $bcJar = "bcprov-jdk18on-$bcVersion.jar"
-    $bcUrl = "https://repo1.maven.org/maven2/org/bouncycastle/bcprov-jdk18on/$bcVersion/$bcJar"
-    $bcPath = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath $bcJar
-
-    if (-not (Test-Path -Path $bcPath)) {
-        Write-Output -InputObject "Downloading Bouncy Castle provider..."
-        Invoke-WebRequest -Uri $bcUrl -OutFile $bcPath
-    }
-
-    try {
-        Copy-Item -Path $indexPath -Destination $jarTempDir
-
-        # Create unsigned JAR
-        $unsignedJar = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath "unsigned-$(Get-Random).jar"
-        Push-Location $jarTempDir
-        jar -cf $unsignedJar "index-v1.json" 2>&1 | Out-Null
-        Pop-Location
-
-        # Sign with jarsigner using BKS provider (password-less)
-        # Use SHA1 digest for F-Droid index-v1 compatibility
-        & jarsigner -keystore $KeystorePath `
-            -storetype "BKS" `
-            -providerpath $bcPath `
-            -provider "org.bouncycastle.jce.provider.BouncyCastleProvider" `
-            -protected `
-            -digestalg "SHA1" `
-            -sigalg "SHA1withECDSA" `
-            -signedjar $jarPath `
-            $unsignedJar `
-            $KeyAlias
-
-        Remove-Item -Path $unsignedJar -Force -ErrorAction SilentlyContinue
-        Write-Output -InputObject "Signed $jarPath"
-    }
-    finally {
-        Start-Sleep -Milliseconds 500  # Allow file handles to close
-        Remove-Item -Path $jarTempDir -Recurse -Force -ErrorAction SilentlyContinue
-    }
+elseif (Get-Command -Name "docker" -ErrorAction SilentlyContinue) {
+    "docker"
 }
 else {
-    Write-Output -InputObject "No keystore provided, skipping JAR signing"
+    throw "Neither podman nor docker found. Please install one of them."
 }
+
+Write-Output -InputObject "Using container runtime: $containerRuntime"
+
+# Create fdroid directory structure if needed
+$fdroidDir = Split-Path -Path $RepoPath -Parent
+
+# Run fdroid command via container
+function Invoke-Fdroid {
+    param([string[]]$Arguments)
+    
+    $mountArgs = @(
+        "run", "--rm",
+        "-v", "${fdroidDir}:/repo:Z",
+        "-w", "/repo"
+    )
+    
+    # Add keystore mount if provided
+    if ($KeystorePath -and (Test-Path -Path $KeystorePath)) {
+        $keystoreDir = Split-Path -Path $KeystorePath -Parent
+        $mountArgs += @("-v", "${keystoreDir}:/keystore:Z")
+    }
+    
+    $mountArgs += $FdroidImage
+    $mountArgs += $Arguments
+    
+    Write-Output -InputObject "Running: $containerRuntime $($Arguments -join ' ')"
+    & $containerRuntime @mountArgs
+}
+
+# Initialize repo if config.yml doesn't exist
+$configPath = Join-Path -Path $fdroidDir -ChildPath "config.yml"
+if (-not (Test-Path -Path $configPath)) {
+    Write-Output -InputObject "Initializing F-Droid repository..."
+    Invoke-Fdroid -Arguments @("init")
+}
+
+# Update config.yml with our settings
+$configContent = @"
+repo_url: https://friendly-journey.compact-orb.ovh/repo
+repo_name: $RepoName
+repo_description: $RepoDescription
+archive_older: 0
+"@
+
+# Add keystore config if provided
+if ($KeystorePath -and (Test-Path -Path $KeystorePath)) {
+    $keystoreName = Split-Path -Path $KeystorePath -Leaf
+    $configContent += @"
+
+keystore: /keystore/$keystoreName
+keystorepass: $KeystorePassword
+keypass: $KeystorePassword
+repo_keyalias: $KeyAlias
+"@
+}
+
+$configContent | Set-Content -Path $configPath
+Write-Output -InputObject "Updated config.yml"
+
+# Run fdroid update to generate index
+Write-Output -InputObject "Generating F-Droid repository index..."
+Invoke-Fdroid -Arguments @("update", "--create-metadata", "--delete-unknown")
+
+Write-Output -InputObject "F-Droid repository updated"
 
 # Write entry.json with patches version for version checking
 $entryPath = Join-Path -Path $RepoPath -ChildPath "entry.json"

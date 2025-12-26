@@ -45,41 +45,50 @@ apps:
 
 You need two keystores:
 
-1. **APK Keystore**: For signing the patched APKs (ReVanced).
-2. **Repo Keystore**: For signing the F-Droid repository index.
+1. **APK Keystore (BKS)**: For signing the patched APKs with ReVanced CLI. Uses password-less BKS format.
+2. **Repo Keystore (JKS)**: For signing the F-Droid repository index with fdroidserver. Uses JKS with password `password`.
 
-Both can be generated using the BKS format (password-less) for seamless automation.
-
-#### Using Podman manually
-
-Run this command twice, allowing you to generate both the APK and Repo keystores.
-*Change the alias and output filename as needed.*
+#### APK Keystore (BKS, password-less)
 
 ```bash
-# Generate a BKS keystore using Eclipse Temurin (Java 21) and Bouncy Castle
 podman run --rm --volume "$PWD:/work" --workdir /work docker.io/library/eclipse-temurin:21-jdk bash -c '
   curl --silent --location --output bcprov.jar https://repo1.maven.org/maven2/org/bouncycastle/bcprov-jdk18on/1.80/bcprov-jdk18on-1.80.jar && \
   keytool -genkeypair \
-    --alias release \
-    --keyalg EC \
-    --groupname secp256r1 \
-    --validity 10000 \
-    --keystore output.keystore \
-    --protected \
-    --storetype BKS \
-    --providerpath bcprov.jar \
-    --provider org.bouncycastle.jce.provider.BouncyCastleProvider \
-    --dname "CN=ReVanced"
+    -alias release \
+    -keyalg EC \
+    -groupname secp256r1 \
+    -validity 10000 \
+    -keystore apk.keystore \
+    -protected \
+    -storetype BKS \
+    -providerpath bcprov.jar \
+    -provider org.bouncycastle.jce.provider.BouncyCastleProvider \
+    -dname "CN=ReVanced"
   rm bcprov.jar'
+```
+
+#### Repo Keystore (JKS, password: `password`)
+
+```bash
+podman run --rm --volume "$PWD:/work" --workdir /work docker.io/library/eclipse-temurin:21-jdk \
+  keytool -genkeypair \
+    -alias release \
+    -keyalg EC \
+    -groupname secp256r1 \
+    -validity 10000 \
+    -keystore repo.keystore \
+    -storepass password \
+    -keypass password \
+    -dname "CN=ReVanced"
 ```
 
 #### Encoding for Environment Variables
 
-Once generated, encode them to Base64 to set as GitHub Secrets or environment variables (`APK_KEYSTORE_BASE64`, `REPO_KEYSTORE_BASE64`).
+Once generated, encode them to Base64 for GitHub Secrets (`APK_KEYSTORE_BASE64`, `REPO_KEYSTORE_BASE64`):
 
 ```bash
-base64 --wrap=0 ApkKeystore.keystore
-base64 --wrap=0 RepoKeystore.keystore
+base64 --wrap=0 apk.keystore
+base64 --wrap=0 repo.keystore
 ```
 
 ## F-Droid Repository
@@ -97,4 +106,5 @@ The repository URL is your Bunny Storage CDN URL with `/repo` appended (e.g., `h
 
 - PowerShell 7+
 - Java 17+
+- Docker or Podman (for fdroidserver)
 - Internet connection for downloading tools and APKs
