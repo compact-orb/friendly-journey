@@ -26,7 +26,7 @@ Write-Output -InputObject "Fetching latest revanced-patches release..."
 $release = Invoke-RestMethod -Uri $releasesUrl -Headers $headers
 
 # Download .rvp file
-$rvpAsset = $release.assets | Where-Object -Process { $_.name -like "*.rvp" } | Select-Object -First 1
+$rvpAsset = $release.assets | Where-Object -FilterScript { $_.name -like "*.rvp" } | Select-Object -First 1
 if (-not $rvpAsset) {
     throw "Could not find .rvp asset in release $($release.tag_name)"
 }

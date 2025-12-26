@@ -36,7 +36,7 @@ function Install-GitHubRelease {
     Write-Output -InputObject "Fetching latest release from $Repo..."
     $release = Invoke-RestMethod -Uri $releasesUrl -Headers $headers
 
-    $asset = $release.assets | Where-Object -Process { $_.name -match $AssetPattern } | Select-Object -First 1
+    $asset = $release.assets | Where-Object -FilterScript { $_.name -match $AssetPattern } | Select-Object -First 1
     if (-not $asset) {
         throw "Could not find asset matching '$AssetPattern' in $Repo release $($release.tag_name)"
     }
