@@ -126,7 +126,7 @@ if ($KeystorePath -and (Test-Path $KeystorePath)) {
             -protected `
             -signedjar $jarPath `
             $unsignedJar `
-            $KeyAlias 2>&1 | Out-Null
+            $KeyAlias
 
         Remove-Item -Path $unsignedJar -Force -ErrorAction SilentlyContinue
         Write-Output -InputObject "Signed $jarPath"
