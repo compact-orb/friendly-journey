@@ -79,4 +79,4 @@ if ($commonVersions.Count -eq 0) {
 # Return the latest compatible version
 $latestVersion = $commonVersions | Sort-Object { [Version]$_ } -Descending | Select-Object -First 1
 Write-Output -InputObject "Latest compatible version for ${PackageName}: $latestVersion"
-return "$latestVersion"
+return $latestVersion
