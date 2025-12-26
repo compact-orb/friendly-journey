@@ -69,7 +69,8 @@ podman run --rm --volume "$PWD:/work" --workdir /work docker.io/library/eclipse-
     --storetype BKS \
     --providerpath bcprov.jar \
     --provider org.bouncycastle.jce.provider.BouncyCastleProvider \
-    --dname "CN=ReVanced"'
+    --dname "CN=ReVanced"
+  rm bcprov.jar'
 ```
 
 #### Encoding for Environment Variables
