@@ -77,8 +77,8 @@ podman run --rm --volume "$PWD:/work" --workdir /work docker.io/library/eclipse-
 Once generated, encode them to Base64 to set as GitHub Secrets or environment variables (`APK_KEYSTORE_BASE64`, `REPO_KEYSTORE_BASE64`).
 
 ```bash
-base64 -w 0 ApkKeystore.keystore
-base64 -w 0 RepoKeystore.keystore
+base64 --wrap=0 ApkKeystore.keystore
+base64 --wrap=0 RepoKeystore.keystore
 ```
 
 ## F-Droid Repository
