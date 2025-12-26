@@ -119,11 +119,14 @@ if ($KeystorePath -and (Test-Path $KeystorePath)) {
         Pop-Location
 
         # Sign with jarsigner using BKS provider (password-less)
+        # Use SHA-256 digest for F-Droid compatibility (SHA-384 is not supported)
         & jarsigner -keystore $KeystorePath `
             -storetype "BKS" `
             -providerpath $bcPath `
             -provider "org.bouncycastle.jce.provider.BouncyCastleProvider" `
             -protected `
+            -digestalg "SHA-256" `
+            -sigalg "SHA256withECDSA" `
             -signedjar $jarPath `
             $unsignedJar `
             $KeyAlias
