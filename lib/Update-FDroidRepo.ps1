@@ -99,17 +99,7 @@ if ($KeystorePath -and (Test-Path $KeystorePath)) {
     New-Item -Path $jarTempDir -ItemType Directory | Out-Null
 
     # Download Bouncy Castle provider if needed
-    # Fetch latest version
-    try {
-        $response = Invoke-RestMethod -Uri "https://search.maven.org/solrsearch/select?q=g:org.bouncycastle+AND+a:bcprov-jdk18on&rows=1&wt=json"
-        $bcVersion = $response.response.docs[0].latestVersion
-        Write-Output -InputObject "Latest Bouncy Castle version: $bcVersion"
-    }
-    catch {
-        Write-Warning -Message "Failed to fetch latest Bouncy Castle version, falling back to 1.78.1"
-        $bcVersion = "1.78.1"
-    }
-
+    $bcVersion = "1.80"
     $bcJar = "bcprov-jdk18on-$bcVersion.jar"
     $bcUrl = "https://repo1.maven.org/maven2/org/bouncycastle/bcprov-jdk18on/$bcVersion/$bcJar"
     $bcPath = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath $bcJar

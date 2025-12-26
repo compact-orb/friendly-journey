@@ -50,14 +50,26 @@ You need two keystores:
 
 Both can be generated using the BKS format (password-less) for seamless automation.
 
-#### Using the helper script
+#### Using Podman manually
 
-```powershell
-# Generate APK signing keystore
-./lib/Generate-Keystore.ps1 -OutputPath "./ApkKeystore.keystore"
+Run this command twice, allowing you to generate both the APK and Repo keystores.
+*Change the alias and output filename as needed.*
 
-# Generate Repo signing keystore
-./lib/Generate-Keystore.ps1 -OutputPath "./RepoKeystore.keystore"
+```bash
+# Generate a BKS keystore using Eclipse Temurin (Java 21) and Bouncy Castle
+podman run --rm --volume "$PWD:/work" --workdir /work docker.io/library/eclipse-temurin:21-jdk bash -c '
+  curl --silent --location --output bcprov.jar https://repo1.maven.org/maven2/org/bouncycastle/bcprov-jdk18on/1.80/bcprov-jdk18on-1.80.jar && \
+  keytool -genkeypair \
+    --alias release \
+    --keyalg EC \
+    --groupname secp256r1 \
+    --validity 10000 \
+    --keystore output.keystore \
+    --protected \
+    --storetype BKS \
+    --providerpath bcprov.jar \
+    --provider org.bouncycastle.jce.provider.BouncyCastleProvider \
+    --dname "CN=ReVanced"'
 ```
 
 #### Encoding for Environment Variables
