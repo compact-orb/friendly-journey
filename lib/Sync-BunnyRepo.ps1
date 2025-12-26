@@ -31,15 +31,59 @@ $files = Get-ChildItem -Path $LocalRepoPath -File
 
 Write-Output -InputObject "Syncing $($files.Count) file(s) to Bunny Storage..."
 
+# Fetch remote file list for hash comparison
+$remoteFilesUrl = "https://$Endpoint/$StorageZone/$RemoteBasePath/"
+$headers = @{
+    "AccessKey" = $AccessKey
+}
+
+$remoteFiles = @{}
+try {
+    # Ensure trailing slash for directory listing
+    if (-not $remoteFilesUrl.EndsWith("/")) { $remoteFilesUrl += "/" }
+    
+    $response = Invoke-RestMethod -Uri $remoteFilesUrl -Headers $headers -Method Get
+    foreach ($item in @($response)) {
+        if ($item.IsDirectory -eq $false -and $item.ObjectName) {
+            # Bunny Storage returns Checksum as SHA256 HEX (uppercase usually)
+            $remoteFiles[$item.ObjectName] = $item.Checksum
+        }
+    }
+}
+catch {
+    Write-Warning -Message "Could not list remote files (might be empty): $_"
+}
+
 foreach ($file in $files) {
     $remotePath = "$RemoteBasePath/$($file.Name)"
+    $shouldUpload = $true
 
-    & "$ScriptRoot/Send-BunnyFile.ps1" `
-        -LocalPath $file.FullName `
-        -RemotePath $remotePath `
-        -AccessKey $AccessKey `
-        -StorageZone $StorageZone `
-        -Endpoint $Endpoint
+    # Calculate local hash
+    $localHash = (Get-FileHash -Path $file.FullName -Algorithm SHA256).Hash.ToUpper()
+
+    # Check against remote
+    if ($remoteFiles.ContainsKey($file.Name)) {
+        $remoteHash = $remoteFiles[$file.Name]
+        if ($remoteHash -eq $localHash) {
+            Write-Output -InputObject "Skipping $($file.Name) (up to date)"
+            $shouldUpload = $false
+        }
+        else {
+            Write-Output -InputObject "Updating $($file.Name) (checksum mismatch)"
+        }
+    }
+    else {
+        Write-Output -InputObject "Uploading new file $($file.Name)"
+    }
+
+    if ($shouldUpload) {
+        & "$ScriptRoot/Send-BunnyFile.ps1" `
+            -LocalPath $file.FullName `
+            -RemotePath $remotePath `
+            -AccessKey $AccessKey `
+            -StorageZone $StorageZone `
+            -Endpoint $Endpoint
+    }
 }
 
 Write-Output -InputObject "Sync complete"
