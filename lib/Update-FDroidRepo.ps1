@@ -16,7 +16,7 @@ param(
 
     [string]$KeystorePath,  # Optional: keystore for signing
 
-    [string]$KeyAlias = "repo",
+    [string]$KeyAlias = "release",
 
     [string]$RepoName = "ReVanced Apps",
 

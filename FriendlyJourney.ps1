@@ -13,6 +13,7 @@ param(
     [string]$TempPath = "/tmp/friendly-journey",
     [string]$ApkKeystorePath,
     [string]$RepoKeystorePath,
+    [string]$RepoKeyAlias = "release",
     # Bunny Storage parameters (from environment if not specified)
     [string]$BunnyAccessKey,
     [string]$BunnyStorageZone,
@@ -169,7 +170,8 @@ Write-Host -Object "`n=== Updating F-Droid Repository ==="
 & "$ScriptRoot/lib/Update-FDroidRepo.ps1" `
     -RepoPath $RepoPath `
     -PatchesVersion $patchesInfo.Version `
-    -KeystorePath $RepoKeystorePath
+    -KeystorePath $RepoKeystorePath `
+    -KeyAlias $RepoKeyAlias
 
 # Sync to Bunny Storage
 if ($useBunnyStorage) {
