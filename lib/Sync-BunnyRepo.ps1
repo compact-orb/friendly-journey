@@ -9,7 +9,9 @@
 
 param(
     [Parameter(Mandatory)]
-    [string]$LocalRepoPath
+    [string]$LocalRepoPath,
+
+    [string]$RemotePrefix = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -21,7 +23,8 @@ $files = Get-ChildItem -Path $LocalRepoPath -File
 Write-Output -InputObject "Syncing $($files.Count) file(s) to Bunny Storage..."
 
 # Fetch remote file list for hash comparison
-$remoteFilesUrl = "https://$env:BUNNY_STORAGE_ENDPOINT/$env:BUNNY_STORAGE_ZONE_NAME/"
+$remotePrefixPath = if ($RemotePrefix) { "$RemotePrefix/" } else { "" }
+$remoteFilesUrl = "https://$env:BUNNY_STORAGE_ENDPOINT/$env:BUNNY_STORAGE_ZONE_NAME/$remotePrefixPath"
 $headers = @{
     "AccessKey" = $env:BUNNY_STORAGE_ACCESS_KEY
 }
@@ -41,7 +44,7 @@ catch {
 }
 
 foreach ($file in $files) {
-    $remotePath = $file.Name
+    $remotePath = "$remotePrefixPath$($file.Name)"
     $shouldUpload = $true
 
     # Calculate local hash

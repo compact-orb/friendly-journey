@@ -74,7 +74,7 @@ Write-Host -Object "`n=== Checking Repository Status ==="
 Write-Host -Object "Checking remote repo on Bunny Storage..."
 $remoteEntryPath = Join-Path -Path $repoPath -ChildPath "entry.json"
 $null = & "$PSScriptRoot/lib/Get-BunnyFile.ps1" `
-    -RemotePath "entry.json" `
+    -RemotePath "repo/entry.json" `
     -LocalPath $remoteEntryPath
 
 # Download latest MicroG for version comparison
@@ -148,7 +148,8 @@ Write-Host -Object "`n=== Updating F-Droid Repository ==="
 # Sync to Bunny Storage
 Write-Host -Object "`n=== Syncing to Bunny Storage ==="
 & "$PSScriptRoot/lib/Sync-BunnyRepo.ps1" `
-    -LocalRepoPath $repoPath
+    -LocalRepoPath $repoPath `
+    -RemotePrefix "repo"
 
 # Cleanup
 Write-Host -Object "`n=== Cleanup ==="
