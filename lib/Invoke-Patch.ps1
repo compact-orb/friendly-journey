@@ -53,18 +53,33 @@ try {
     )
     & "$BinPath/apkeep" @apkeepArgs
 
-    # Find downloaded file - check all split APK formats (xapk, apks, apkm) and regular apk
+    # Find downloaded file - check multiple formats:
+    # 1. Split APK archives (xapk, apks, apkm)
+    # 2. Google Play split APK directory (contains base.apk + config.*.apk files in a subdirectory)
+    # 3. Regular single APK file
     $splitApk = Get-ChildItem -Path $workDir -Include "*.xapk", "*.apks", "*.apkm" -Recurse | Select-Object -First 1
     $apk = Get-ChildItem -Path $workDir -Filter "*.apk" | Select-Object -First 1
+    
+    # Check for Google Play split APK directory structure (subdirectory with multiple APKs)
+    $splitDir = Get-ChildItem -Path $workDir -Directory | Where-Object {
+        (Get-ChildItem -Path $_.FullName -Filter "base.apk" -ErrorAction SilentlyContinue)
+    } | Select-Object -First 1
 
     if ($splitApk) {
-        # Merge split APK from split package
-        Write-Host -Object "Found split APK: $($splitApk.Name), merging..."
+        # Merge split APK from split package archive
+        Write-Host -Object "Found split APK archive: $($splitApk.Name), merging..."
         $mergeDir = Join-Path -Path $workDir -ChildPath "merge"
         unzip -q $splitApk.FullName -d $mergeDir | Out-Null
 
         $mergedApk = Join-Path -Path $workDir -ChildPath "merged.apk"
         java -jar "$BinPath/APKEditor.jar" merge -i $mergeDir -o $mergedApk | Out-Null
+        $inputApk = $mergedApk
+    }
+    elseif ($splitDir) {
+        # Merge split APKs from Google Play download directory
+        Write-Host -Object "Found Google Play split APK directory: $($splitDir.Name), merging..."
+        $mergedApk = Join-Path -Path $workDir -ChildPath "merged.apk"
+        java -jar "$BinPath/APKEditor.jar" merge -i $splitDir.FullName -o $mergedApk | Out-Null
         $inputApk = $mergedApk
     }
     elseif ($apk) {
@@ -74,7 +89,7 @@ try {
     }
     else {
         Write-Host -Object "Directory contents of ${workDir}:"
-        Get-ChildItem -Path $workDir | Out-Host
+        Get-ChildItem -Path $workDir -Recurse | Out-Host
         throw "No APK or XAPK file found in $workDir after download"
     }
 
