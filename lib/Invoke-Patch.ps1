@@ -72,12 +72,14 @@ try {
     # Add keystore if provided
     $cliArgs += "--keystore=$KeystorePath"
 
-    # Add include/exclude patches
+    # Add include/exclude patches (as separate arguments for proper handling of names with spaces)
     foreach ($patch in $IncludePatches) {
-        $cliArgs += "--include=$patch"
+        $cliArgs += "--include"
+        $cliArgs += $patch
     }
     foreach ($patch in $ExcludePatches) {
-        $cliArgs += "--exclude=$patch"
+        $cliArgs += "--exclude"
+        $cliArgs += $patch
     }
 
     $cliArgs += $inputApk
