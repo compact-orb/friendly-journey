@@ -252,11 +252,6 @@ try {
         else {
             # Fallback to standard name without version code
             $outputName = "${PackageName}${archSuffix}.apk"
-
-            # If input was merged, maybe append -merged?
-            if ($inputFilename -match "-merged$") {
-                $outputName = "${PackageName}${archSuffix}-merged.apk"
-            }
         }
 
         $outputApk = Join-Path -Path $OutputPath -ChildPath $outputName
