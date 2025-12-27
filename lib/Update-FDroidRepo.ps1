@@ -104,7 +104,7 @@ $entryPath = Join-Path -Path $RepoPath -ChildPath "entry.json"
 $entry = @{
     patchesVersion = $PatchesVersion
     microgVersion  = $MicroGVersion
-    timestamp      = (Get-Date -Format "o" -UTC)
+    timestamp      = (Get-Date -Format "o" -AsUTC)
     repoName       = $RepoName
 }
 $entry | ConvertTo-Json | Set-Content -Path $entryPath
