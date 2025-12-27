@@ -66,7 +66,7 @@ if ($env:MARK_PATCHED) {
     # Download entry.json from remote to get current state
     $remoteEntryPath = Join-Path -Path $repoPath -ChildPath "entry.json"
     $null = & "$PSScriptRoot/lib/Get-BunnyFile.ps1" `
-        -RemotePath "repo/entry.json" `
+        -RemotePath "fdroid/repo/entry.json" `
         -LocalPath $remoteEntryPath
 
     # Download patches and MicroG to get current versions
@@ -97,7 +97,7 @@ if ($env:MARK_PATCHED) {
     # Sync just the entry.json to Bunny Storage
     & "$PSScriptRoot/lib/Send-BunnyFile.ps1" `
         -LocalPath $remoteEntryPath `
-        -RemotePath "repo/entry.json"
+        -RemotePath "fdroid/repo/entry.json"
 
     Write-Host -Object "Mark-only mode complete. Exiting."
     exit 0
@@ -120,7 +120,7 @@ Write-Host -Object "`n=== Checking Repository Status ==="
 Write-Host -Object "Checking remote repo on Bunny Storage..."
 $remoteEntryPath = Join-Path -Path $repoPath -ChildPath "entry.json"
 $null = & "$PSScriptRoot/lib/Get-BunnyFile.ps1" `
-    -RemotePath "repo/entry.json" `
+    -RemotePath "fdroid/repo/entry.json" `
     -LocalPath $remoteEntryPath
 
 # Download latest MicroG for version comparison
@@ -232,7 +232,7 @@ Write-Host -Object "`n=== Updating F-Droid Repository ==="
 Write-Host -Object "`n=== Syncing to Bunny Storage ==="
 & "$PSScriptRoot/lib/Sync-BunnyRepo.ps1" `
     -LocalRepoPath $repoPath `
-    -RemotePrefix "repo"
+    -RemotePrefix "fdroid/repo"
 
 # Cleanup
 Write-Host -Object "`n=== Cleanup ==="
