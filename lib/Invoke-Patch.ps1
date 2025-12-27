@@ -51,7 +51,7 @@ try {
         "--options", "split_apk=true",
         $workDir
     )
-    & "$BinPath/apkeep" @apkeepArgs | Out-Null
+    & "$BinPath/apkeep" @apkeepArgs
 
     # Find downloaded file - check all split APK formats (xapk, apks, apkm) and regular apk
     $splitApk = Get-ChildItem -Path $workDir -Include "*.xapk", "*.apks", "*.apkm" -Recurse | Select-Object -First 1
