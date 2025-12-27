@@ -72,14 +72,12 @@ try {
     # Add keystore if provided
     $cliArgs += "--keystore=$KeystorePath"
 
-    # Add enable/disable patches (revanced-cli uses -e/--enable and -d/--disable)
+    # Add enable/disable patches
     foreach ($patch in $IncludePatches) {
-        $cliArgs += "-e"
-        $cliArgs += $patch
+        $cliArgs += "--enable=`"$patch`""
     }
     foreach ($patch in $ExcludePatches) {
-        $cliArgs += "-d"
-        $cliArgs += $patch
+        $cliArgs += "--disable=`"$patch`""
     }
 
     $cliArgs += $inputApk
