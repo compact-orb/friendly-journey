@@ -98,6 +98,9 @@ base64 --wrap=0 apk.keystore
 base64 --wrap=0 repo.keystore
 ```
 
+> [!NOTE]
+> **Security**: The repo keystore uses a known password (`password`) and the APK keystore is password-less. This is acceptable here because the keystores themselves are stored as GitHub Secrets, which are encrypted at rest and only exposed during workflow execution. The security boundary is GitHub's secret management rather than the keystore passwords.
+
 ## F-Droid Repository
 
 To add the repository to F-Droid:
