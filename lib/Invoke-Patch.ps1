@@ -221,19 +221,25 @@ try {
         # Patch
         Write-Host -Object "Patching $inputFilename..."
 
+        $metadata = Get-ApkMetadata -ApkPath $inputFile
+
         # Calculate patches build number and temporary version code (moved up for naming)
         $newVersionCodeCalculated = $null
-        if ($PatchesVersion) {
-            $originalVersionCode = Get-ApkVersionCode -ApkPath $inputFile
-            if ($originalVersionCode) {
-                $patchesBuildNumber = Get-PatchesBuildNumber -Version $PatchesVersion
-                $newVersionCodeCalculated = $originalVersionCode + $patchesBuildNumber
-            }
+        $originalVersionCode = $metadata.VersionCode
+
+        if ($PatchesVersion -and $originalVersionCode) {
+            $patchesBuildNumber = Get-PatchesBuildNumber -Version $PatchesVersion
+            $newVersionCodeCalculated = $originalVersionCode + $patchesBuildNumber
         }
 
-        # Determine Architecture from input filename (if it matches our strict pattern or common patterns)
+        # Determine Architecture
+        # 1. Prefer metadata extracted from valid APKs
+        # 2. Fallback to filename matching
         $archSuffix = ""
-        if ($inputFilename -match "(arm64-v8a|armeabi-v7a|x86_64|x86)") {
+        if ($metadata.Architecture) {
+            $archSuffix = "-$($metadata.Architecture)"
+        }
+        elseif ($inputFilename -match "(arm64-v8a|armeabi-v7a|x86_64|x86)") {
             $archSuffix = "-$($Matches[1])"
         }
 
