@@ -72,12 +72,14 @@ try {
     # Add keystore if provided
     $cliArgs += "--keystore=$KeystorePath"
 
-    # Add enable/disable patches
+    # Add enable/disable patches (using short options with separate value for reliable parsing)
     foreach ($patch in $IncludePatches) {
-        $cliArgs += "--enable=`"$patch`""
+        $cliArgs += "-e"
+        $cliArgs += $patch
     }
     foreach ($patch in $ExcludePatches) {
-        $cliArgs += "--disable=`"$patch`""
+        $cliArgs += "-d"
+        $cliArgs += $patch
     }
 
     $cliArgs += $inputApk
