@@ -85,7 +85,7 @@ try {
 
     $cliArgs += $inputApk
 
-    java @cliArgs
+    java @cliArgs | Out-Null
 
     Write-Host -Object "Patched APK: $outputApk"
     return $outputApk
