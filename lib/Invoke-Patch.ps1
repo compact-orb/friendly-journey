@@ -41,6 +41,7 @@ function Get-ApkMetadata {
 
     $metadata = @{
         VersionCode  = $null
+        VersionName  = $null
         Architecture = $null
     }
 
@@ -67,6 +68,11 @@ function Get-ApkMetadata {
         if ($output -match "versionCode='(\d+)'") {
             $metadata.VersionCode = [long]$Matches[1]
             Write-Host -Object "Extracted versionCode: $($metadata.VersionCode) from $([System.IO.Path]::GetFileName($ApkPath))"
+        }
+
+        if ($output -match "versionName='([^']+)'") {
+            $metadata.VersionName = $Matches[1]
+            Write-Host -Object "Extracted versionName: $($metadata.VersionName)"
         }
 
         # Extract native-code (architecture)
@@ -131,19 +137,37 @@ try {
     # Check for local APKs first
     if ($LocalApkPath -and (Test-Path -Path $LocalApkPath)) {
         Write-Host -Object "Checking for local APKs in $LocalApkPath..."
-        $localPattern = if ($Version) { "$PackageName*$Version*" } else { "$PackageName*" }
-
-        # Get all matching files (both split archives and regular APKs)
-        $localMatches = Get-ChildItem -Path $LocalApkPath -Include "*.xapk", "*.apks", "*.apkm", "*.apk" -Recurse | 
+        # Get all matching files (ignoring version in filename for now)
+        $localPattern = "$PackageName*"
+        $candidates = Get-ChildItem -Path $LocalApkPath -Include "*.xapk", "*.apks", "*.apkm", "*.apk" -Recurse | 
         Where-Object { $_.Name -like $localPattern }
 
-        if ($localMatches) {
-            Write-Host -Object "Found $($localMatches.Count) local APK(s)"
-            foreach ($match in $localMatches) {
-                # Copy to work dir with unique name to avoid conflicts if names are similar (though they shouldn't be)
-                $dest = Join-Path -Path $workDir -ChildPath $match.Name
-                Copy-Item -Path $match.FullName -Destination $dest
-                $inputFiles += $dest
+        if ($candidates) {
+            Write-Host -Object "Found $($candidates.Count) candidate local APK(s)"
+            foreach ($match in $candidates) {
+                $shouldUse = $true
+                if ($Version) {
+                    # Verify version from metadata if constraint exists
+                    $meta = Get-ApkMetadata -ApkPath $match.FullName
+                    if ($meta.VersionName -and $meta.VersionName -eq $Version) {
+                        Write-Host -Object "Found matching version $Version in $($match.Name)"
+                    }
+                    elseif ($match.Name -like "*$Version*") {
+                        # Fallback: trust filename if metadata check fails or isn't possible (e.g. split APKs might not dump easily)
+                        Write-Host -Object "Filename matches version $Version: $($match.Name)"
+                    }
+                    else {
+                        Write-Warning -Object "Skipping $($match.Name): Version mismatch (Expected: $Version, Found: $($meta.VersionName ?? 'Unknown'))"
+                        $shouldUse = $false
+                    }
+                }
+
+                if ($shouldUse) {
+                    # Copy to work dir with unique name
+                    $dest = Join-Path -Path $workDir -ChildPath $match.Name
+                    Copy-Item -Path $match.FullName -Destination $dest
+                    $inputFiles += $dest
+                }
             }
         }
     }
