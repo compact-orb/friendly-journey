@@ -1,5 +1,7 @@
 # friendly-journey
 
+[![CodeFactor](https://www.codefactor.io/repository/github/compact-orb/friendly-journey/badge)](https://www.codefactor.io/repository/github/compact-orb/friendly-journey)
+
 Automated ReVanced patching pipeline with F-Droid repository hosting.
 
 ## About
