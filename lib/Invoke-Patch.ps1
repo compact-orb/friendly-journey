@@ -45,15 +45,15 @@ try {
     }
     & "$BinPath/apkeep" @apkeepArgs | Out-Null
 
-    # Find downloaded file (xapk or apk)
-    $xapk = Get-ChildItem -Path $workDir -Filter "*.xapk" | Select-Object -First 1
+    # Find downloaded file - check all split APK formats (xapk, apks, apkm) and regular apk
+    $splitApk = Get-ChildItem -Path $workDir -Include "*.xapk", "*.apks", "*.apkm" -Recurse | Select-Object -First 1
     $apk = Get-ChildItem -Path $workDir -Filter "*.apk" | Select-Object -First 1
 
-    if ($xapk) {
-        # Merge split APK from xapk
-        Write-Host -Object "Merging split APK..."
+    if ($splitApk) {
+        # Merge split APK from split package
+        Write-Host -Object "Found split APK: $($splitApk.Name), merging..."
         $mergeDir = Join-Path -Path $workDir -ChildPath "merge"
-        unzip -q $xapk.FullName -d $mergeDir | Out-Null
+        unzip -q $splitApk.FullName -d $mergeDir | Out-Null
 
         $mergedApk = Join-Path -Path $workDir -ChildPath "merged.apk"
         java -jar "$BinPath/APKEditor.jar" merge -i $mergeDir -o $mergedApk | Out-Null
@@ -61,7 +61,7 @@ try {
     }
     elseif ($apk) {
         # Use the regular APK directly
-        Write-Host -Object "Using downloaded APK directly..."
+        Write-Host -Object "Using downloaded APK directly: $($apk.Name)"
         $inputApk = $apk.FullName
     }
     else {
