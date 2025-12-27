@@ -23,5 +23,16 @@ $headers = @{
 }
 
 Write-Output -InputObject "Downloading $RemotePath from Bunny Storage..."
-Invoke-WebRequest -Uri $url -Headers $headers -OutFile $LocalPath
-Write-Output -InputObject "Downloaded to $LocalPath"
+
+try {
+    Invoke-WebRequest -Uri $url -Headers $headers -OutFile $LocalPath
+    Write-Output -InputObject "Downloaded to $LocalPath"
+    return $true
+}
+catch {
+    if ($_.Exception.Response.StatusCode -eq 404) {
+        Write-Output -InputObject "File not found: $RemotePath"
+        return $false
+    }
+    throw
+}
