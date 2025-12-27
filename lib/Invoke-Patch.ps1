@@ -154,7 +154,7 @@ try {
                     }
                     elseif ($match.Name -like "*$Version*") {
                         # Fallback: trust filename if metadata check fails or isn't possible (e.g. split APKs might not dump easily)
-                        Write-Host -Object "Filename matches version $Version: $($match.Name)"
+                        Write-Host -Object "Filename matches version ${Version}: $($match.Name)"
                     }
                     else {
                         Write-Warning -Object "Skipping $($match.Name): Version mismatch (Expected: $Version, Found: $($meta.VersionName ?? 'Unknown'))"
