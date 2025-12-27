@@ -287,7 +287,7 @@ try {
 
         # Calculate and apply new versionCode if patches version is provided
         if ($newVersionCodeCalculated) {
-            Write-Host "Modifying versionCode: $originalVersionCode + $patchesBuildNumber = $newVersionCodeCalculated"
+            Write-Host -Object "Modifying versionCode: $originalVersionCode + $patchesBuildNumber = $newVersionCodeCalculated"
                 
             # Enable "Change version code" patch with calculated value
             $cliArgs += "-e"
