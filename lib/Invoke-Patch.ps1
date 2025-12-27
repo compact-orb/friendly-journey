@@ -77,10 +77,10 @@ try {
 }
 finally {
     # Cleanup work directory
-    Remove-Item -Path $workDir -Recurse
+    Remove-Item -Path $workDir -Recurse -Force
 }
 catch {
     Write-Error -Message $_.Exception.Message
-    Remove-Item -Path $workDir -Recurse
+    Remove-Item -Path $workDir -Recurse -Force
     exit 1
 }

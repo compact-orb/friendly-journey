@@ -48,7 +48,7 @@ foreach ($file in $ktFiles) {
 }
 
 # Cleanup
-Remove-Item -Path $extractPath -Recurse
+Remove-Item -Path $extractPath -Recurse -Force
 
 if ($allVersions.Count -eq 0) {
     Write-Host -Object "No version constraints found, using latest"
