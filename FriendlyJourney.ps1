@@ -20,7 +20,7 @@ $PSNativeCommandUseErrorActionPreference = $true
 # Install powershell-yaml module if not present
 if (-not (Get-Module -ListAvailable -Name powershell-yaml)) {
     Write-Host -Object "Installing powershell-yaml module..."
-    Install-Module -Name powershell-yaml -Scope CurrentUser
+    Install-Module -Name powershell-yaml -Scope CurrentUser -Force
 }
 Import-Module -Name powershell-yaml
 
