@@ -41,32 +41,16 @@ apps:
 |`BUNNY_STORAGE_ZONE_NAME`|Bunny Storage zone name|
 |`BUNNY_STORAGE_ENDPOINT`|Bunny Storage endpoint URL|
 |`FDROID_REPO_URL`|F-Droid repository URL|
-|`GOOGLE_PLAY_EMAIL`|Gmail address for Google Play downloads|
-|`GOOGLE_PLAY_AAS_TOKEN`|AAS token for Google Play API access|
 
-### Google Play AAS Token
+### Manual APK Upload (Optional)
 
-APKs are downloaded directly from Google Play. This requires a one-time setup to obtain an AAS token:
+If a specific app version is not available on APKPure or you want to provide your own APKs, place them in the `downloads` directory in the repository root.
 
-1. Visit the [Google Embedded Setup page](https://accounts.google.com/EmbeddedSetup)
-2. Open browser DevTools → Network tab
-3. Log in with your Google account
-4. Find the last request to `accounts.google.com` and check its Cookies
-5. Copy the `oauth_token` value (starts with `oauth2_4/`)
-6. Run apkeep to exchange for an AAS token:
+- Naming convention: `PackageName*Version*.apk` or `PackageName*.apk` if version doesn't matter.
+- Supports `.apk`, `.xapk`, `.apks`, and `.apkm`.
+- Example: `downloads/com.google.android.youtube_19.16.39.apk`
 
-   ```bash
-   podman run --rm docker.io/library/ubuntu:24.04 bash -c \
-     "apt-get update && apt-get install --yes curl && \
-      curl --location --output /usr/local/bin/apkeep https://github.com/EFForg/apkeep/releases/latest/download/apkeep-x86_64-unknown-linux-gnu && \
-      chmod +x /usr/local/bin/apkeep && \
-      apkeep --email 'your@gmail.com' --oauth-token 'oauth2_4/...'"
-   ```
-
-7. Save the printed AAS token as `GOOGLE_PLAY_AAS_TOKEN` secret
-8. Save your email as `GOOGLE_PLAY_EMAIL` secret
-
-> **Note**: The OAuth token is single-use, but the AAS token can be reused indefinitely.
+The script will check this directory before attempting to download from apkeep.
 
 ### Creating Keystores
 

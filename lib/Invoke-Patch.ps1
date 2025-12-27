@@ -23,11 +23,7 @@ param(
 
     [string]$BinPath = "/tmp/friendly-journey/bin",
 
-    [Parameter(Mandatory)]
-    [string]$GooglePlayEmail,  # Google account email for apkeep
-
-    [Parameter(Mandatory)]
-    [string]$GooglePlayAasToken,  # AAS token for Google Play downloads
+    [string]$LocalApkPath,  # Optional: path to check for manually downloaded APKs
 
     [string[]]$IncludePatches = @(),  # Patches to explicitly include
 
@@ -41,29 +37,48 @@ $workDir = Join-Path -Path $OutputPath -ChildPath "work-$PackageName"
 New-Item -Path $workDir -ItemType Directory | Out-Null
 
 try {
-    # Download APK
-    Write-Host -Object "Downloading $PackageName..."
-    $apkeepArgs = @(
-        "--app", $(if ($Version) { "$PackageName@$Version" } else { $PackageName }),
-        "--download-source", "google-play",
-        "--email", $GooglePlayEmail,
-        "--aas-token", $GooglePlayAasToken,
-        "--options", "split_apk=true",
-        $workDir
-    )
-    & "$BinPath/apkeep" @apkeepArgs
+    $downloaded = $false
+
+    # Check for local APK first
+    if ($LocalApkPath -and (Test-Path -Path $LocalApkPath)) {
+        Write-Host -Object "Checking for local APK in $LocalApkPath..."
+        $localPattern = if ($Version) { "$PackageName*$Version*" } else { "$PackageName*" }
+
+        # Check for XAPK/APKS/APKM
+        $localSplit = Get-ChildItem -Path $LocalApkPath -Include "*.xapk", "*.apks", "*.apkm" -Recurse | 
+        Where-Object { $_.Name -like $localPattern } | Select-Object -First 1
+
+        # Check for regular APK
+        $localApk = Get-ChildItem -Path $LocalApkPath -Filter "*.apk" -Recurse | 
+        Where-Object { $_.Name -like $localPattern } | Select-Object -First 1
+
+        if ($localSplit) {
+            Write-Host -Object "Found local split APK: $($localSplit.Name)"
+            Copy-Item -Path $localSplit.FullName -Destination $workDir
+            $downloaded = $true
+        }
+        elseif ($localApk) {
+            Write-Host -Object "Found local APK: $($localApk.Name)"
+            Copy-Item -Path $localApk.FullName -Destination $workDir
+            $downloaded = $true
+        }
+    }
+
+    if (-not $downloaded) {
+        # Download APK via apkeep (default source: apk-pure)
+        Write-Host -Object "Downloading $PackageName..."
+        $apkeepArgs = @(
+            "--app", $(if ($Version) { "$PackageName@$Version" } else { $PackageName }),
+            $workDir
+        )
+        & "$BinPath/apkeep" @apkeepArgs
+    }
 
     # Find downloaded file - check multiple formats:
     # 1. Split APK archives (xapk, apks, apkm)
-    # 2. Google Play split APK directory (contains base.apk + config.*.apk files in a subdirectory)
-    # 3. Regular single APK file
+    # 2. Regular single APK file
     $splitApk = Get-ChildItem -Path $workDir -Include "*.xapk", "*.apks", "*.apkm" -Recurse | Select-Object -First 1
     $apk = Get-ChildItem -Path $workDir -Filter "*.apk" | Select-Object -First 1
-    
-    # Check for Google Play split APK directory structure (subdirectory with multiple APKs)
-    $splitDir = Get-ChildItem -Path $workDir -Directory | Where-Object {
-        (Get-ChildItem -Path $_.FullName -Filter "base.apk" -ErrorAction SilentlyContinue)
-    } | Select-Object -First 1
 
     if ($splitApk) {
         # Merge split APK from split package archive
@@ -73,13 +88,6 @@ try {
 
         $mergedApk = Join-Path -Path $workDir -ChildPath "merged.apk"
         java -jar "$BinPath/APKEditor.jar" merge -i $mergeDir -o $mergedApk | Out-Null
-        $inputApk = $mergedApk
-    }
-    elseif ($splitDir) {
-        # Merge split APKs from Google Play download directory
-        Write-Host -Object "Found Google Play split APK directory: $($splitDir.Name), merging..."
-        $mergedApk = Join-Path -Path $workDir -ChildPath "merged.apk"
-        java -jar "$BinPath/APKEditor.jar" merge -i $splitDir.FullName -o $mergedApk | Out-Null
         $inputApk = $mergedApk
     }
     elseif ($apk) {

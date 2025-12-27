@@ -43,6 +43,12 @@ $RepoKeystorePath = Join-Path -Path $TempPath -ChildPath "RepoKeystore.keystore"
 [System.IO.File]::WriteAllBytes($RepoKeystorePath, [Convert]::FromBase64String($env:REPO_KEYSTORE_BASE64))
 Write-Host -Object "Decoded repo keystore from environment"
 
+# Define local APK download path
+$LocalApkPath = Join-Path -Path $PSScriptRoot -ChildPath "downloads"
+if (-not (Test-Path -Path $LocalApkPath)) {
+    New-Item -Path $LocalApkPath -ItemType Directory | Out-Null
+}
+
 # Load configuration
 Write-Host -Object "Loading configuration from $ConfigPath..."
 $configContent = Get-Content -Path $ConfigPath -Raw
@@ -106,8 +112,7 @@ foreach ($app in $apps) {
         -OutputPath $TempPath `
         -BinPath "$TempPath/bin" `
         -KeystorePath $ApkKeystorePath `
-        -GooglePlayEmail $env:GOOGLE_PLAY_EMAIL `
-        -GooglePlayAasToken $env:GOOGLE_PLAY_AAS_TOKEN `
+        -LocalApkPath $LocalApkPath `
         -IncludePatches ($app.include ?? @()) `
         -ExcludePatches ($app.exclude ?? @())
 
