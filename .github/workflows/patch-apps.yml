@@ -8,11 +8,11 @@ on:
     # Allow manual triggers
     inputs:
       mark_patched:
-        description: 'Space-separated package names to mark as patched without actually patching (e.g. "com.google.android.youtube com.google.android.apps.youtube.music")'
+        description: 'Package names to mark as patched without patching (space-separated)'
         required: false
         type: string
       force_repatch:
-        description: 'Space-separated package names to force repatch even if versions match (e.g. "com.google.android.youtube")'
+        description: 'Package names to force repatch (space-separated)'
         required: false
         type: string
 
