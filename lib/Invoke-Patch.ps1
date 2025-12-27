@@ -47,15 +47,26 @@ try {
 
     # Find downloaded file (xapk or apk)
     $xapk = Get-ChildItem -Path $workDir -Filter "*.xapk" | Select-Object -First 1
+    $apk = Get-ChildItem -Path $workDir -Filter "*.apk" | Select-Object -First 1
 
-    # Merge split APK
-    Write-Host -Object "Merging split APK..."
-    $mergeDir = Join-Path -Path $workDir -ChildPath "merge"
-    unzip -q $xapk.FullName -d $mergeDir | Out-Null
+    if ($xapk) {
+        # Merge split APK from xapk
+        Write-Host -Object "Merging split APK..."
+        $mergeDir = Join-Path -Path $workDir -ChildPath "merge"
+        unzip -q $xapk.FullName -d $mergeDir | Out-Null
 
-    $mergedApk = Join-Path -Path $workDir -ChildPath "merged.apk"
-    java -jar "$BinPath/APKEditor.jar" merge -i $mergeDir -o $mergedApk | Out-Null
-    $inputApk = $mergedApk
+        $mergedApk = Join-Path -Path $workDir -ChildPath "merged.apk"
+        java -jar "$BinPath/APKEditor.jar" merge -i $mergeDir -o $mergedApk | Out-Null
+        $inputApk = $mergedApk
+    }
+    elseif ($apk) {
+        # Use the regular APK directly
+        Write-Host -Object "Using downloaded APK directly..."
+        $inputApk = $apk.FullName
+    }
+    else {
+        throw "No APK or XAPK file found in $workDir after download"
+    }
 
     # Patch
     Write-Host -Object "Patching $PackageName..."
@@ -90,12 +101,11 @@ try {
     Write-Host -Object "Patched APK: $outputApk"
     return $outputApk
 }
+catch {
+    Write-Error -Message $_.Exception.Message
+    exit 1
+}
 finally {
     # Cleanup work directory
     Remove-Item -Path $workDir -Recurse -Force
-}
-catch {
-    Write-Error -Message $_.Exception.Message
-    Remove-Item -Path $workDir -Recurse -Force
-    exit 1
 }
