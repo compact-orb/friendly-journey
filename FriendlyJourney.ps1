@@ -67,7 +67,7 @@ Write-Host -Object "`n=== Checking Repository Status ==="
 # Download entry.json from remote
 Write-Host -Object "Checking remote repo on Bunny Storage..."
 $remoteEntryPath = Join-Path -Path $repoPath -ChildPath "entry.json"
-& "$PSScriptRoot/lib/Get-BunnyFile.ps1" `
+$null = & "$PSScriptRoot/lib/Get-BunnyFile.ps1" `
     -RemotePath "entry.json" `
     -LocalPath $remoteEntryPath
 
