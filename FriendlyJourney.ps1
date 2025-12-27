@@ -57,6 +57,52 @@ $apps = $config.apps
 
 Write-Host -Object "Found $($apps.Count) app(s) to patch"
 
+# Handle mark-only mode (for bootstrapping existing repos)
+if ($env:MARK_PATCHED) {
+    Write-Host -Object "`n=== Mark-Only Mode ==="
+    $markPackages = $env:MARK_PATCHED -split '\s+' | Where-Object { $_ }
+    Write-Host -Object "Marking packages as patched without patching: $($markPackages -join ', ')"
+
+    # Download entry.json from remote to get current state
+    $remoteEntryPath = Join-Path -Path $repoPath -ChildPath "entry.json"
+    $null = & "$PSScriptRoot/lib/Get-BunnyFile.ps1" `
+        -RemotePath "repo/entry.json" `
+        -LocalPath $remoteEntryPath
+
+    # Download patches and MicroG to get current versions
+    $patchesInfo = & "$PSScriptRoot/lib/Get-RevancedPatches.ps1" -OutputPath $TempPath
+    $microgInfo = & "$PSScriptRoot/lib/Get-RevancedMicroG.ps1" -OutputPath $TempPath
+
+    # Read existing entry or create new one
+    if (Test-Path -Path $remoteEntryPath) {
+        $existingEntry = Get-Content -Path $remoteEntryPath -Raw | ConvertFrom-Json
+        $existingPackages = $existingEntry.patchedPackages ?? @()
+        $allPackages = @($existingPackages) + $markPackages | Select-Object -Unique
+    }
+    else {
+        $allPackages = $markPackages
+    }
+
+    # Write updated entry.json
+    $entry = @{
+        patchesVersion  = $patchesInfo.Version
+        microgVersion   = $microgInfo.Version
+        patchedPackages = $allPackages
+        timestamp       = (Get-Date -Format "o" -AsUTC)
+        repoName        = "friendly-journey"
+    }
+    $entry | ConvertTo-Json | Set-Content -Path $remoteEntryPath
+    Write-Host -Object "Updated entry.json with patched packages: $($allPackages -join ', ')"
+
+    # Sync just the entry.json to Bunny Storage
+    & "$PSScriptRoot/lib/Send-BunnyFile.ps1" `
+        -LocalPath $remoteEntryPath `
+        -RemotePath "repo/entry.json"
+
+    Write-Host -Object "Mark-only mode complete. Exiting."
+    exit 0
+}
+
 $binPath = Join-Path -Path $TempPath -ChildPath "bin"
 
 # Install tools

@@ -6,6 +6,11 @@ on:
     - cron: '45 18 * * *'
   workflow_dispatch:
     # Allow manual triggers
+    inputs:
+      mark_patched:
+        description: 'Space-separated package names to mark as patched without actually patching (e.g. "com.google.android.youtube com.google.android.apps.youtube.music")'
+        required: false
+        type: string
 
 jobs:
   patch:
@@ -34,4 +39,5 @@ jobs:
           APK_KEYSTORE_BASE64: ${{ secrets.APK_KEYSTORE_BASE64 }}
           REPO_KEYSTORE_BASE64: ${{ secrets.REPO_KEYSTORE_BASE64 }}
           FDROID_REPO_URL: ${{ secrets.FDROID_REPO_URL }}
+          MARK_PATCHED: ${{ inputs.mark_patched }}
         run: ./FriendlyJourney.ps1
