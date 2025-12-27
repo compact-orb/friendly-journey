@@ -11,3 +11,6 @@ apps:
 
   - name: "YouTube Music"
     package: "com.google.android.apps.youtube.music"
+
+  - name: "Spotify"
+    package: "com.spotify.music"
