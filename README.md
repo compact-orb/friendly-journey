@@ -101,7 +101,7 @@ To add the repository to F-Droid:
 3. Tap **+** and enter the repository URL
 4. Enable the repository and refresh
 
-The repository URL is your Bunny Storage CDN URL with `/repo` appended (e.g., `https://your-cdn.b-cdn.net/repo`).
+The repository URL is your Bunny Storage CDN URL (e.g., `https://your-cdn.b-cdn.net`).
 
 ## Requirements
 

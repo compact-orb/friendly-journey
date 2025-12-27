@@ -11,7 +11,7 @@ param(
     [string]$LocalPath,   # Local file path to upload
 
     [Parameter(Mandatory)]
-    [string]$RemotePath  # Path in storage zone, e.g., "repo/app.apk"
+    [string]$RemotePath  # Path in storage zone, e.g., "app.apk"
 )
 
 $ErrorActionPreference = "Stop"

@@ -8,7 +8,7 @@
 
 param(
     [Parameter(Mandatory)]
-    [string]$RemotePath,  # Path in storage zone, e.g., "repo/entry.json"
+    [string]$RemotePath,  # Path in storage zone, e.g., "entry.json"
 
     [Parameter(Mandatory)]
     [string]$LocalPath    # Local file path to save to
@@ -16,7 +16,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$url = "https://$env:BUNNY_STORAGE_ENDPOINT/$env:BUNNY_STORAGE_ZONE/$RemotePath"
+$url = "https://$env:BUNNY_STORAGE_ENDPOINT/$env:BUNNY_STORAGE_ZONE_NAME/$RemotePath"
 
 $headers = @{
     "AccessKey" = $env:BUNNY_STORAGE_ACCESS_KEY

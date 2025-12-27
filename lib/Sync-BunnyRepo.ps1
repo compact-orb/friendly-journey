@@ -41,7 +41,7 @@ catch {
 }
 
 foreach ($file in $files) {
-    $remotePath = "$RemoteBasePath/$($file.Name)"
+    $remotePath = $file.Name
     $shouldUpload = $true
 
     # Calculate local hash
