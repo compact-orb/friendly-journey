@@ -1,10 +1,10 @@
 <#
 .SYNOPSIS
-    Downloads the latest ReVanced patches and extracts source for version discovery.
+    Downloads the latest ReVanced patches.
 
 .DESCRIPTION
-    Downloads the .rvp file and source zip from the latest revanced-patches release.
-    Returns the patches version tag.
+    Downloads the .rvp file from the latest revanced-patches release.
+    Returns the patches version and path.
 #>
 
 param(
@@ -36,17 +36,10 @@ $rvpPath = Join-Path -Path $OutputPath -ChildPath $rvpAsset.name
 Write-Host -Object "Downloading $($rvpAsset.name)..."
 Invoke-WebRequest -Uri $rvpAsset.browser_download_url -OutFile $rvpPath
 
-# Download source zip for version discovery
-$sourceZipName = "patches-$($release.tag_name)-source.zip"
-$sourceZipPath = Join-Path -Path $OutputPath -ChildPath $sourceZipName
-Write-Host -Object "Downloading source zip..."
-Invoke-WebRequest -Uri $release.zipball_url -OutFile $sourceZipPath -Headers $headers
-
 Write-Host -Object "Downloaded patches version: $($release.tag_name)"
 
 # Return version info
 return @{
-    Version       = $release.tag_name
-    RvpPath       = $rvpPath
-    SourceZipPath = $sourceZipPath
+    Version = $release.tag_name
+    RvpPath = $rvpPath
 }

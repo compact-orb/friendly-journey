@@ -1,18 +1,18 @@
 <#
 .SYNOPSIS
-    Finds the latest compatible app version from revanced-patches source.
+    Finds the latest compatible app version using revanced-cli.
 
 .DESCRIPTION
-    Parses the revanced-patches source code to find compatible versions
-    for a specific app. Returns the latest version that works with all patches.
+    Uses revanced-cli list-patches to find compatible versions for a specific app.
+    Returns the latest version from the list.
 #>
 
 param(
     [Parameter(Mandatory)]
-    [string]$SourceZipPath,
+    [string]$CliPath,  # Path to revanced-cli.jar
 
     [Parameter(Mandatory)]
-    [string]$PatchesPath,  # e.g., "youtube", "music"
+    [string]$RvpPath,  # Path to .rvp patches file
 
     [Parameter(Mandatory)]
     [string]$PackageName   # e.g., "com.google.android.youtube"
@@ -21,52 +21,43 @@ param(
 $ErrorActionPreference = "Stop"
 $PSNativeCommandUseErrorActionPreference = $true
 
-$extractPath = "/tmp/friendly-journey/revanced-source"
+Write-Host -Object "Finding compatible versions for $PackageName..."
 
-New-Item -Path $extractPath -ItemType Directory | Out-Null
-unzip -q $SourceZipPath -d $extractPath
+# Run revanced-cli list-patches with version and package filtering
+$output = java -jar $CliPath list-patches --with-packages --with-versions --filter-package-name $PackageName $RvpPath 2>&1
 
-# Find the patches directory
-$targetDir = Get-ChildItem -Path $extractPath -Directory | Select-Object -First 1
-$patchesDir = Join-Path -Path $targetDir.FullName -ChildPath "patches/src/main/kotlin/app/revanced/patches/$PatchesPath"
+# Parse versions from output
+# Format: "        19.34.42" (indented version numbers after "Compatible versions:")
+$versions = @()
+$inVersionBlock = $false
 
-$ktFiles = Get-ChildItem -Path $patchesDir -Filter "*.kt" -Recurse
-$allVersions = @()
-
-foreach ($file in $ktFiles) {
-    $content = Get-Content -Path $file.FullName -Raw
-
-    # Match compatibleWith block for the target package
-    if ($content -match "compatibleWith\s*\(\s*`"$PackageName`"\s*\(([\s\S]*?)\)\s*\)") {
-        $versionBlock = $matches[1]
-        $versions = [regex]::Matches($versionBlock, '"(\d+\.\d+\.\d+)"') | ForEach-Object -Process { $_.Groups[1].Value }
-
-        if ($versions.Count -gt 0) {
-            $allVersions += , $versions
+foreach ($line in $output -split "`n") {
+    if ($line -match "Compatible versions:") {
+        $inVersionBlock = $true
+        continue
+    }
+    
+    if ($inVersionBlock) {
+        # Version lines are indented with spaces/tabs
+        if ($line -match "^\s+(\d+\.\d+\.\d+)\s*$") {
+            $versions += $matches[1]
+        }
+        elseif ($line -match "^\s*$" -or $line -match "^(Index|Name|Description|Enabled|Compatible packages):") {
+            # End of version block - reset for next patch
+            $inVersionBlock = $false
         }
     }
 }
 
-# Cleanup
-Remove-Item -Path $extractPath -Recurse -Force
+# Get unique versions and sort to find latest
+$uniqueVersions = $versions | Sort-Object -Unique
 
-if ($allVersions.Count -eq 0) {
+if ($uniqueVersions.Count -eq 0) {
     Write-Host -Object "No version constraints found, using latest"
     return $null
 }
 
-# Find common versions across all patches
-$commonVersions = $allVersions[0]
-for ($i = 1; $i -lt $allVersions.Count; $i++) {
-    $commonVersions = $commonVersions | Where-Object { $allVersions[$i] -contains $_ }
-}
-
-if ($commonVersions.Count -eq 0) {
-    Write-Warning -Message "No common compatible versions found"
-    return $null
-}
-
 # Return the latest compatible version
-$latestVersion = $commonVersions | Sort-Object { [Version]$_ } -Descending | Select-Object -First 1
+$latestVersion = $uniqueVersions | Sort-Object { [Version]$_ } -Descending | Select-Object -First 1
 Write-Host -Object "Latest compatible version for ${PackageName}: $latestVersion"
 return $latestVersion

@@ -83,7 +83,7 @@ $isUpToDate = & "$PSScriptRoot/lib/Test-RepoUpToDate.ps1" `
 if ($isUpToDate) {
     Write-Host -Object "Repository is up to date. Nothing to do."
     # Cleanup
-    Remove-Item -Path $patchesInfo.SourceZipPath, $patchesInfo.RvpPath
+    Remove-Item -Path $patchesInfo.RvpPath
     exit 0
 }
 
@@ -92,10 +92,10 @@ Write-Host -Object "`n=== Patching Apps ==="
 foreach ($app in $apps) {
     Write-Host -Object "`n--- Patching $($app.name) ---"
 
-    # Find compatible version
+    # Find compatible version using revanced-cli
     $compatibleVersion = & "$PSScriptRoot/lib/Get-CompatibleVersion.ps1" `
-        -SourceZipPath $patchesInfo.SourceZipPath `
-        -PatchesPath $app.patches_path `
+        -CliPath "$TempPath/bin/revanced-cli.jar" `
+        -RvpPath $patchesInfo.RvpPath `
         -PackageName $app.package
 
     # Patch the app
@@ -137,7 +137,6 @@ Write-Host -Object "`n=== Syncing to Bunny Storage ==="
 
 # Cleanup
 Write-Host -Object "`n=== Cleanup ==="
-Remove-Item -Path $patchesInfo.SourceZipPath -Force -ErrorAction SilentlyContinue
 Remove-Item -Path $patchesInfo.RvpPath -Force -ErrorAction SilentlyContinue
 
 Write-Host -Object "`n=== Done ==="

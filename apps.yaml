@@ -2,15 +2,12 @@
 # Each app needs:
 #   - name: Human-readable name
 #   - package: Android package name for apkeep
-#   - patches_path: Path in revanced-patches source for version discovery
 
 apps:
   - name: "YouTube"
     package: "com.google.android.youtube"
-    patches_path: "youtube"
     exclude:
       - "Change header"
 
   - name: "YouTube Music"
     package: "com.google.android.apps.youtube.music"
-    patches_path: "music"
