@@ -240,6 +240,13 @@ else {
     Write-Host -Object "`n=== MicroG is up to date, skipping ==="
 }
 
+# If we didn't repatch everything, we need to restore existing APKs from storage
+# so that F-Droid doesn't delete them (due to --delete-unknown)
+if (-not $repoStatus.NeedsPatchesUpdate) {
+    Write-Host -Object "`n=== Restoring Existing APKs from Storage ==="
+    & "$PSScriptRoot/lib/Restore-BunnyRepo.ps1" -LocalRepoPath $repoPath
+}
+
 # Update F-Droid repo
 Write-Host -Object "`n=== Updating F-Droid Repository ==="
 & "$PSScriptRoot/lib/Update-FDroidRepo.ps1" `
