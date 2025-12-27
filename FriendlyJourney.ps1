@@ -105,7 +105,7 @@ foreach ($app in $apps) {
         -PackageName $app.package
 
     # Patch the app
-    $patchedApk = & "$PSScriptRoot/lib/Invoke-Patch.ps1" `
+    $patchedApks = & "$PSScriptRoot/lib/Invoke-Patch.ps1" `
         -PackageName $app.package `
         -Version $compatibleVersion `
         -PatchesPath $patchesInfo.RvpPath `
@@ -116,10 +116,18 @@ foreach ($app in $apps) {
         -IncludePatches ($app.include ?? @()) `
         -ExcludePatches ($app.exclude ?? @())
 
-    # Move to repo
-    $repoApkPath = Join-Path -Path $repoPath -ChildPath "$($app.package).apk"
-    Move-Item -Path $patchedApk -Destination $repoApkPath
-    Write-Host -Object "Moved to $repoApkPath"
+    # Move all patched APKs to repo
+    foreach ($apk in $patchedApks) {
+        if (-not (Test-Path $apk)) { continue }
+
+        $apkName = [System.IO.Path]::GetFileName($apk)
+        # Unique naming to avoid collisions if not already handled
+        # (Invoke-Patch adds original filename which includes arch usually)
+
+        $repoApkPath = Join-Path -Path $repoPath -ChildPath $apkName
+        Move-Item -Path $apk -Destination $repoApkPath -Force
+        Write-Host -Object "Moved to $repoApkPath"
+    }
 }
 
 # Copy MicroG to repo (already downloaded for version comparison)
