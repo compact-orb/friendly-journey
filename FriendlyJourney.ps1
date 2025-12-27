@@ -81,21 +81,39 @@ $null = & "$PSScriptRoot/lib/Get-BunnyFile.ps1" `
 Write-Host -Object "`n=== Downloading ReVanced MicroG ==="
 $microgInfo = & "$PSScriptRoot/lib/Get-RevancedMicroG.ps1" -OutputPath $TempPath
 
-$isUpToDate = & "$PSScriptRoot/lib/Test-RepoUpToDate.ps1" `
+# Extract configured package names
+$configuredPackages = @($apps | ForEach-Object { $_.package })
+
+$repoStatus = & "$PSScriptRoot/lib/Test-RepoUpToDate.ps1" `
     -RepoPath $repoPath `
     -LatestPatchesVersion $patchesInfo.Version `
-    -LatestMicroGVersion $microgInfo.Version
+    -LatestMicroGVersion $microgInfo.Version `
+    -ConfiguredPackages $configuredPackages
 
-if ($isUpToDate) {
+if ($repoStatus.IsFullyUpToDate) {
     Write-Host -Object "Repository is up to date. Nothing to do."
     # Cleanup
     Remove-Item -Path $patchesInfo.RvpPath
     exit 0
 }
 
-# Patch each app
+# Determine which apps to patch
+if ($repoStatus.NeedsPatchesUpdate) {
+    # Patches/MicroG changed - repatch all apps
+    Write-Host -Object "Patches or MicroG updated, will repatch all apps"
+    $appsToPatch = $apps
+}
+else {
+    # Only patch missing apps
+    Write-Host -Object "Only patching new apps: $($repoStatus.MissingPackages -join ', ')"
+    $appsToPatch = @($apps | Where-Object { $_.package -in $repoStatus.MissingPackages })
+}
+
+# Patch selected apps
 Write-Host -Object "`n=== Patching Apps ==="
-foreach ($app in $apps) {
+$patchedPackages = @()
+
+foreach ($app in $appsToPatch) {
     Write-Host -Object "`n--- Patching $($app.name) ---"
 
     # Find compatible version using revanced-cli
@@ -128,6 +146,24 @@ foreach ($app in $apps) {
         Move-Item -Path $apk -Destination $repoApkPath -Force
         Write-Host -Object "Moved to $repoApkPath"
     }
+
+    # Track this package as patched
+    $patchedPackages += $app.package
+}
+
+# Combine with existing patched packages if we're only adding new apps
+if (-not $repoStatus.NeedsPatchesUpdate) {
+    # Read existing patched packages from entry.json
+    $entryPath = Join-Path -Path $repoPath -ChildPath "entry.json"
+    if (Test-Path -Path $entryPath) {
+        $existingEntry = Get-Content -Path $entryPath -Raw | ConvertFrom-Json
+        $existingPackages = $existingEntry.patchedPackages ?? @()
+        $patchedPackages = @($existingPackages) + $patchedPackages | Select-Object -Unique
+    }
+}
+else {
+    # We're repatching all, so use all configured packages
+    $patchedPackages = $configuredPackages
 }
 
 # Copy MicroG to repo (already downloaded for version comparison)
@@ -143,7 +179,8 @@ Write-Host -Object "`n=== Updating F-Droid Repository ==="
     -PatchesVersion $patchesInfo.Version `
     -MicroGVersion $microgInfo.Version `
     -KeystorePath $RepoKeystorePath `
-    -KeyAlias $RepoKeyAlias
+    -KeyAlias $RepoKeyAlias `
+    -PatchedPackages $patchedPackages
 
 # Sync to Bunny Storage
 Write-Host -Object "`n=== Syncing to Bunny Storage ==="

@@ -24,6 +24,9 @@ param(
     [Parameter(Mandatory)]
     [string]$KeyAlias,
 
+    [Parameter(Mandatory)]
+    [string[]]$PatchedPackages,
+
     [string]$RepoName = "friendly-journey",
 
     [string]$RepoDescription = "friendly-journey patches Android apps using ReVanced and publishes them to a self-hosted F-Droid repository. It supports automatic updates and syncs to Bunny Storage for CDN distribution."
@@ -102,10 +105,11 @@ Write-Output -InputObject "F-Droid repository updated"
 # Write entry.json with patches version for version checking
 $entryPath = Join-Path -Path $RepoPath -ChildPath "entry.json"
 $entry = @{
-    patchesVersion = $PatchesVersion
-    microgVersion  = $MicroGVersion
-    timestamp      = (Get-Date -Format "o" -AsUTC)
-    repoName       = $RepoName
+    patchesVersion  = $PatchesVersion
+    microgVersion   = $MicroGVersion
+    patchedPackages = $PatchedPackages
+    timestamp       = (Get-Date -Format "o" -AsUTC)
+    repoName        = $RepoName
 }
 $entry | ConvertTo-Json | Set-Content -Path $entryPath
 Write-Output -InputObject "Updated $entryPath"
