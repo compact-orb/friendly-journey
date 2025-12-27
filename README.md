@@ -56,7 +56,8 @@ APKs are downloaded directly from Google Play. This requires a one-time setup to
 6. Run apkeep to exchange for an AAS token:
 
    ```bash
-   apkeep -e 'your@gmail.com' --oauth-token 'oauth2_4/...'
+   podman run --rm docker.io/library/rust:slim sh --login -c \
+     "cargo install apkeep && apkeep --email 'your@gmail.com' --oauth-token 'oauth2_4/...'"
    ```
 
 7. Save the printed AAS token as `GOOGLE_PLAY_AAS_TOKEN` secret
