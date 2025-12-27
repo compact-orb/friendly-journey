@@ -45,8 +45,12 @@ apps:
 
 If a specific app version is not available on APKPure or you want to provide your own APKs, place them in the `downloads` directory in the repository root.
 
-- Naming convention: `PackageName*Version*.apk` or `PackageName*.apk` if version doesn't matter.
-- Example: `downloads/com.google.android.youtube_19.16.39.apk`
+- Naming convention: `PackageName[-Version]-Arch.apk`
+- Examples:
+  - `com.google.android.youtube-arm64-v8a.apk`
+  - `com.google.android.youtube-19.16.39-arm64-v8a.apk`
+- **Supported Architectures**: `arm64-v8a`, `armeabi-v7a`, `x86`, `x86_64`
+- **Important**: The filename *must* contain one of the supported architecture strings for the script to correctly identify it. If you have a universal APK, you may need to manually rename it to include an architecture or modify the script to handle it.
 
 The script will check this directory before attempting to download from apkeep.
 

@@ -35,52 +35,73 @@ param(
 $ErrorActionPreference = "Stop"
 $PSNativeCommandUseErrorActionPreference = $true
 
-# Helper function to extract versionCode from APK using aapt2
-function Get-ApkVersionCode {
+# Helper function to extract metadata (versionCode, arch) from APK using aapt2
+function Get-ApkMetadata {
     param([string]$ApkPath)
-    
+
+    $metadata = @{
+        VersionCode  = $null
+        Architecture = $null
+    }
+
     # Only works on actual .apk files, not xapk/apks/apkm
     if ($ApkPath -notmatch '\.apk$') {
-        Write-Host -Object "Skipping versionCode extraction for non-APK file: $ApkPath"
-        return $null
+        Write-Host -Object "Skipping metadata extraction for non-APK file: $ApkPath"
+        return $metadata
     }
-    
+
     # Find aapt2 in Android SDK (pre-installed on GitHub runners)
     $androidHome = $env:ANDROID_HOME ?? "/usr/local/lib/android/sdk"
     $aapt2 = Get-ChildItem -Path "$androidHome/build-tools" -Filter "aapt2" -Recurse | 
     Sort-Object { $_.Directory.Name } -Descending | 
     Select-Object -First 1
-    
+
     if (-not $aapt2) {
-        Write-Warning -Message "aapt2 not found, cannot modify versionCode"
-        return $null
+        Write-Warning -Message "aapt2 not found, cannot extract metadata"
+        return $metadata
     }
-    
+
     try {
         $output = & $aapt2.FullName dump badging $ApkPath 2>&1 | Out-String
+
         if ($output -match "versionCode='(\d+)'") {
-            $versionCode = [long]$Matches[1]
-            Write-Host -Object "Extracted versionCode: $versionCode from $([System.IO.Path]::GetFileName($ApkPath))"
-            return $versionCode
+            $metadata.VersionCode = [long]$Matches[1]
+            Write-Host -Object "Extracted versionCode: $($metadata.VersionCode) from $([System.IO.Path]::GetFileName($ApkPath))"
         }
-        Write-Warning -Message "Could not extract versionCode from $ApkPath"
-        return $null
+
+        # Extract native-code (architecture)
+        if ($output -match "native-code: '([^']+)'") {
+            # native-code line can look like: native-code: 'arm64-v8a' 'armeabi-v7a'
+            # We take the first one as primary, or the one that matches our supported list
+            $archs = $Matches[1] -split "'\s+'" | ForEach-Object { $_ -replace "'", "" }
+
+            # Prefer arm64-v8a > armeabi-v7a > x86_64 > x86
+            if ('arm64-v8a' -in $archs) { $metadata.Architecture = 'arm64-v8a' }
+            elseif ('armeabi-v7a' -in $archs) { $metadata.Architecture = 'armeabi-v7a' }
+            elseif ('x86_64' -in $archs) { $metadata.Architecture = 'x86_64' }
+            elseif ('x86' -in $archs) { $metadata.Architecture = 'x86' }
+            else { $metadata.Architecture = $archs[0] } # Fallback to first
+
+            Write-Host -Object "Extracted architecture: $($metadata.Architecture)"
+        }
+
+        return $metadata
     }
     catch {
-        Write-Warning -Message "Error extracting versionCode: $_"
-        return $null
+        Write-Warning -Message "Error extracting metadata: $_"
+        return $metadata
     }
 }
 
 # Helper function to calculate patches build number from version string
 function Get-PatchesBuildNumber {
     param([string]$Version)
-    
+
     if (-not $Version) { return 0 }
-    
+
     # Strip 'v' prefix if present and any suffix after hyphen (e.g., "v5.0.0-beta" -> "5.0.0")
     $cleanVersion = $Version -replace '^v', '' -replace '-.*$', ''
-    
+
     # Parse version like "4.26.0" -> 426 or "4.26.1" -> 4261
     $parts = $cleanVersion -split '\.'
     if ($parts.Count -ge 2) {
@@ -156,9 +177,11 @@ try {
                 # (APKPure names usually don't include arch explicitly in a way we trust blindly, or duplicate names)
                 # But actually, typically they do. Let's append arch just in case.
 
-                $originalName = [System.IO.Path]::GetFileNameWithoutExtension($downloadedFile.Name)
                 $extension = $downloadedFile.Extension
-                $newName = "${originalName}-${arch}${extension}"
+
+                # Rename to strict format: PackageName-Arch.extension
+                # This discards the original filename from the source to avoid duplication or garbage.
+                $newName = "${PackageName}-${arch}${extension}"
                 $destPath = Join-Path -Path $workDir -ChildPath $newName
 
                 Move-Item -Path $downloadedFile.FullName -Destination $destPath -Force
@@ -197,7 +220,40 @@ try {
 
         # Patch
         Write-Host -Object "Patching $inputFilename..."
-        $outputApk = Join-Path -Path $OutputPath -ChildPath "$PackageName-$inputFilename.apk"
+
+        # Calculate patches build number and temporary version code (moved up for naming)
+        $newVersionCodeCalculated = $null
+        if ($PatchesVersion) {
+            $originalVersionCode = Get-ApkVersionCode -ApkPath $inputFile
+            if ($originalVersionCode) {
+                $patchesBuildNumber = Get-PatchesBuildNumber -Version $PatchesVersion
+                $newVersionCodeCalculated = $originalVersionCode + $patchesBuildNumber
+            }
+        }
+
+        # Determine Architecture from input filename (if it matches our strict pattern or common patterns)
+        $archSuffix = ""
+        if ($inputFilename -match "(arm64-v8a|armeabi-v7a|x86_64|x86)") {
+            $archSuffix = "-$($Matches[1])"
+        }
+
+        # Construct Output Filename
+        # Format: PackageName[-VersionCode][-Arch].apk
+        if ($newVersionCodeCalculated) {
+            # If we have version code, use it.
+            $outputName = "${PackageName}-${newVersionCodeCalculated}${archSuffix}.apk"
+        }
+        else {
+            # Fallback to standard name without version code
+            $outputName = "${PackageName}${archSuffix}.apk"
+
+            # If input was merged, maybe append -merged?
+            if ($inputFilename -match "-merged$") {
+                $outputName = "${PackageName}${archSuffix}-merged.apk"
+            }
+        }
+
+        $outputApk = Join-Path -Path $OutputPath -ChildPath $outputName
 
         # Build revanced-cli arguments
         $cliArgs = @(
@@ -212,18 +268,13 @@ try {
         $cliArgs += "--keystore-entry-alias=release"
 
         # Calculate and apply new versionCode if patches version is provided
-        if ($PatchesVersion) {
-            $originalVersionCode = Get-ApkVersionCode -ApkPath $inputFile
-            if ($originalVersionCode) {
-                $patchesBuildNumber = Get-PatchesBuildNumber -Version $PatchesVersion
-                $newVersionCode = $originalVersionCode + $patchesBuildNumber
-                Write-Host "Modifying versionCode: $originalVersionCode + $patchesBuildNumber = $newVersionCode"
+        if ($newVersionCodeCalculated) {
+            Write-Host "Modifying versionCode: $originalVersionCode + $patchesBuildNumber = $newVersionCodeCalculated"
                 
-                # Enable "Change version code" patch with calculated value
-                $cliArgs += "-e"
-                $cliArgs += "Change version code"
-                $cliArgs += "-OversionCode=$newVersionCode"
-            }
+            # Enable "Change version code" patch with calculated value
+            $cliArgs += "-e"
+            $cliArgs += "Change version code"
+            $cliArgs += "-OversionCode=$newVersionCodeCalculated"
         }
 
         # Add enable/disable patches (using short options with separate value for reliable parsing)
