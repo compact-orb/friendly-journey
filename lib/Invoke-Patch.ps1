@@ -71,7 +71,7 @@ try {
             "--app", $(if ($Version) { "$PackageName@$Version" } else { $PackageName }),
             $workDir
         )
-        & "$BinPath/apkeep" @apkeepArgs
+        & "$BinPath/apkeep" @apkeepArgs | Out-Null
     }
 
     # Find downloaded file - check multiple formats:
