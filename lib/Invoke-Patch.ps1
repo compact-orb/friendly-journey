@@ -47,7 +47,7 @@ try {
         "--app", $(if ($Version) { "$PackageName@$Version" } else { $PackageName }),
         "--download-source", "google-play",
         "--email", $GooglePlayEmail,
-        "--token", $GooglePlayAasToken,
+        "--aas-token", $GooglePlayAasToken,
         "--options", "split_apk=true",
         $workDir
     )
