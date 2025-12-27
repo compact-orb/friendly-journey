@@ -104,7 +104,8 @@ foreach ($app in $apps) {
         -Version $compatibleVersion `
         -PatchesPath $patchesInfo.RvpPath `
         -OutputPath $TempPath `
-        -BinPath "$TempPath/bin"
+        -BinPath "$TempPath/bin" `
+        -KeystorePath $ApkKeystorePath
 
     # Move to repo
     $repoApkPath = Join-Path -Path $repoPath -ChildPath "$($app.package).apk"

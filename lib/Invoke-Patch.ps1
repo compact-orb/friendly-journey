@@ -17,7 +17,7 @@ param(
     [string]$PatchesPath,  # Path to .rvp file
 
     [Parameter(Mandatory)]
-    [string]$KeystorePath,  # Optional: path to keystore for signing
+    [string]$KeystorePath,  # Path to keystore for signing
 
     [string]$OutputPath = "/tmp/friendly-journey",
 
