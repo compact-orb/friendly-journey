@@ -244,15 +244,8 @@ try {
         }
 
         # Construct Output Filename
-        # Format: PackageName[-VersionCode][-Arch].apk
-        if ($newVersionCodeCalculated) {
-            # If we have version code, use it.
-            $outputName = "${PackageName}-${newVersionCodeCalculated}${archSuffix}.apk"
-        }
-        else {
-            # Fallback to standard name without version code
-            $outputName = "${PackageName}${archSuffix}.apk"
-        }
+        # Format: PackageName[-Arch].apk (Static naming to prevent storage accumulation)
+        $outputName = "${PackageName}${archSuffix}.apk"
 
         $outputApk = Join-Path -Path $OutputPath -ChildPath $outputName
 
