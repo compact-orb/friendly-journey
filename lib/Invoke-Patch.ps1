@@ -72,13 +72,13 @@ try {
     # Add keystore if provided
     $cliArgs += "--keystore=$KeystorePath"
 
-    # Add include/exclude patches (as separate arguments for proper handling of names with spaces)
+    # Add enable/disable patches (revanced-cli uses -e/--enable and -d/--disable)
     foreach ($patch in $IncludePatches) {
-        $cliArgs += "--include"
+        $cliArgs += "-e"
         $cliArgs += $patch
     }
     foreach ($patch in $ExcludePatches) {
-        $cliArgs += "--exclude"
+        $cliArgs += "-d"
         $cliArgs += $patch
     }
 
