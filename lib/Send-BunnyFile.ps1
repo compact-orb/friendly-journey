@@ -11,16 +11,7 @@ param(
     [string]$LocalPath,   # Local file path to upload
 
     [Parameter(Mandatory)]
-    [string]$RemotePath,  # Path in storage zone, e.g., "repo/app.apk"
-
-    [Parameter(Mandatory)]
-    [string]$AccessKey,
-
-    [Parameter(Mandatory)]
-    [string]$StorageZone,
-
-    [Parameter(Mandatory)]
-    [string]$Endpoint     # e.g., "la.storage.bunnycdn.com"
+    [string]$RemotePath  # Path in storage zone, e.g., "repo/app.apk"
 )
 
 $ErrorActionPreference = "Stop"
@@ -29,10 +20,10 @@ if (-not (Test-Path -Path $LocalPath)) {
     throw "Local file not found: $LocalPath"
 }
 
-$url = "https://$Endpoint/$StorageZone/$RemotePath"
+$url = "https://$env:BUNNY_STORAGE_ENDPOINT/$env:BUNNY_STORAGE_ZONE_NAME/$RemotePath"
 
 $headers = @{
-    "AccessKey"    = $AccessKey
+    "AccessKey"    = $env:BUNNY_STORAGE_ACCESS_KEY
     "Content-Type" = "application/octet-stream"
 }
 

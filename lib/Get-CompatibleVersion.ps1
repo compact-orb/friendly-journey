@@ -23,22 +23,12 @@ $PSNativeCommandUseErrorActionPreference = $true
 
 $extractPath = "/tmp/friendly-journey/revanced-source"
 
-# Clean and extract
-if (Test-Path -Path $extractPath) {
-    Remove-Item -Path $extractPath -Recurse -Force
-}
 New-Item -Path $extractPath -ItemType Directory | Out-Null
 unzip -q $SourceZipPath -d $extractPath
 
 # Find the patches directory
 $targetDir = Get-ChildItem -Path $extractPath -Directory | Select-Object -First 1
 $patchesDir = Join-Path -Path $targetDir.FullName -ChildPath "patches/src/main/kotlin/app/revanced/patches/$PatchesPath"
-
-if (-not (Test-Path -Path $patchesDir)) {
-    Write-Warning -Message "Patches directory not found: $patchesDir"
-    Remove-Item -Path $extractPath -Recurse -Force
-    return $null
-}
 
 $ktFiles = Get-ChildItem -Path $patchesDir -Filter "*.kt" -Recurse
 $allVersions = @()
@@ -58,7 +48,7 @@ foreach ($file in $ktFiles) {
 }
 
 # Cleanup
-Remove-Item -Path $extractPath -Recurse -Force
+Remove-Item -Path $extractPath -Recurse
 
 if ($allVersions.Count -eq 0) {
     Write-Host -Object "No version constraints found, using latest"

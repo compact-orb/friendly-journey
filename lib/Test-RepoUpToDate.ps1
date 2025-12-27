@@ -3,7 +3,7 @@
     Checks if the F-Droid repository is up to date.
 
 .DESCRIPTION
-    Compares the patches version in the repo metadata with the latest release.
+    Compares the patches and MicroG versions in the repo metadata with the latest releases.
     Returns $true if up to date, $false if needs updating.
 #>
 
@@ -12,7 +12,10 @@ param(
     [string]$RepoPath,
 
     [Parameter(Mandatory)]
-    [string]$LatestPatchesVersion
+    [string]$LatestPatchesVersion,
+
+    [Parameter(Mandatory)]
+    [string]$LatestMicroGVersion
 )
 
 $ErrorActionPreference = "Stop"
@@ -26,14 +29,24 @@ if (-not (Test-Path -Path $entryPath)) {
 
 try {
     $entry = Get-Content -Path $entryPath -Raw | ConvertFrom-Json
-    $storedVersion = $entry.patchesVersion
 
-    if ($storedVersion -eq $LatestPatchesVersion) {
-        Write-Host -Object "Repo is up to date (patches version: $storedVersion)"
+    $storedPatchesVersion = $entry.patchesVersion
+    $storedMicroGVersion = $entry.microgVersion
+
+    $patchesMatch = $storedPatchesVersion -eq $LatestPatchesVersion
+    $microgMatch = $storedMicroGVersion -eq $LatestMicroGVersion
+
+    if ($patchesMatch -and $microgMatch) {
+        Write-Host -Object "Repo is up to date (patches: $storedPatchesVersion, MicroG: $storedMicroGVersion)"
         return $true
     }
     else {
-        Write-Host -Object "Repo outdated: $storedVersion -> $LatestPatchesVersion"
+        if (-not $patchesMatch) {
+            Write-Host -Object "Patches outdated: $storedPatchesVersion -> $LatestPatchesVersion"
+        }
+        if (-not $microgMatch) {
+            Write-Host -Object "MicroG outdated: $storedMicroGVersion -> $LatestMicroGVersion"
+        }
         return $false
     }
 }

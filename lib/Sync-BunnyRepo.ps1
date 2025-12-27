@@ -9,18 +9,7 @@
 
 param(
     [Parameter(Mandatory)]
-    [string]$LocalRepoPath,
-
-    [string]$RemoteBasePath = "repo",
-
-    [Parameter(Mandatory)]
-    [string]$AccessKey,
-
-    [Parameter(Mandatory)]
-    [string]$StorageZone,
-
-    [Parameter(Mandatory)]
-    [string]$Endpoint
+    [string]$LocalRepoPath
 )
 
 $ErrorActionPreference = "Stop"
@@ -32,16 +21,13 @@ $files = Get-ChildItem -Path $LocalRepoPath -File
 Write-Output -InputObject "Syncing $($files.Count) file(s) to Bunny Storage..."
 
 # Fetch remote file list for hash comparison
-$remoteFilesUrl = "https://$Endpoint/$StorageZone/$RemoteBasePath/"
+$remoteFilesUrl = "https://$env:BUNNY_STORAGE_ENDPOINT/$env:BUNNY_STORAGE_ZONE_NAME/"
 $headers = @{
-    "AccessKey" = $AccessKey
+    "AccessKey" = $env:BUNNY_STORAGE_ACCESS_KEY
 }
 
 $remoteFiles = @{}
 try {
-    # Ensure trailing slash for directory listing
-    if (-not $remoteFilesUrl.EndsWith("/")) { $remoteFilesUrl += "/" }
-    
     $response = Invoke-RestMethod -Uri $remoteFilesUrl -Headers $headers -Method Get
     foreach ($item in @($response)) {
         if ($item.IsDirectory -eq $false -and $item.ObjectName) {
@@ -79,10 +65,7 @@ foreach ($file in $files) {
     if ($shouldUpload) {
         & "$ScriptRoot/Send-BunnyFile.ps1" `
             -LocalPath $file.FullName `
-            -RemotePath $remotePath `
-            -AccessKey $AccessKey `
-            -StorageZone $StorageZone `
-            -Endpoint $Endpoint
+            -RemotePath $remotePath
     }
 }
 

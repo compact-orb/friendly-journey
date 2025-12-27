@@ -8,16 +8,14 @@
 #>
 
 param(
-    [string]$OutputPath = "/tmp/friendly-journey"
+    [Parameter(Mandatory = $true)]
+    [string]$OutputPath
 )
 
 $ErrorActionPreference = "Stop"
 $PSNativeCommandUseErrorActionPreference = $true
 
-$headers = @{}
-if ($env:GITHUB_TOKEN) {
-    $headers["Authorization"] = "token $env:GITHUB_TOKEN"
-}
+$headers["Authorization"] = "token $env:GITHUB_TOKEN"
 
 $repo = "ReVanced/revanced-patches"
 $releasesUrl = "https://api.github.com/repos/$repo/releases/latest"
@@ -29,11 +27,6 @@ $release = Invoke-RestMethod -Uri $releasesUrl -Headers $headers
 $rvpAsset = $release.assets | Where-Object -FilterScript { $_.name -like "*.rvp" } | Select-Object -First 1
 if (-not $rvpAsset) {
     throw "Could not find .rvp asset in release $($release.tag_name)"
-}
-
-# Create output directory if needed
-if (-not (Test-Path -Path $OutputPath)) {
-    New-Item -Path $OutputPath -ItemType Directory -Force | Out-Null
 }
 
 $rvpPath = Join-Path -Path $OutputPath -ChildPath $rvpAsset.name

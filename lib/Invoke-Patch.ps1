@@ -16,6 +16,7 @@ param(
     [Parameter(Mandatory)]
     [string]$PatchesPath,  # Path to .rvp file
 
+    [Parameter(Mandatory)]
     [string]$KeystorePath,  # Optional: path to keystore for signing
 
     [string]$OutputPath = "/tmp/friendly-journey",
@@ -27,40 +28,30 @@ $ErrorActionPreference = "Stop"
 $PSNativeCommandUseErrorActionPreference = $true
 
 $workDir = Join-Path -Path $OutputPath -ChildPath "work-$PackageName"
-if (Test-Path -Path $workDir) {
-    Remove-Item -Path $workDir -Recurse -Force
-}
 New-Item -Path $workDir -ItemType Directory | Out-Null
 
 try {
     # Download APK
     Write-Host -Object "Downloading $PackageName..."
-    $apkeepArgs = @("--app", $PackageName, "--options", "split_apk=true", $workDir)
     if ($Version) {
         $apkeepArgs = @("--app", "$PackageName@$Version", "--options", "split_apk=true", $workDir)
+    }
+    else {
+        $apkeepArgs = @("--app", $PackageName, "--options", "split_apk=true", $workDir)
     }
     & "$BinPath/apkeep" @apkeepArgs | Out-Null
 
     # Find downloaded file (xapk or apk)
     $xapk = Get-ChildItem -Path $workDir -Filter "*.xapk" | Select-Object -First 1
-    $apk = Get-ChildItem -Path $workDir -Filter "*.apk" | Select-Object -First 1
 
-    if ($xapk) {
-        # Merge split APK
-        Write-Host -Object "Merging split APK..."
-        $mergeDir = Join-Path -Path $workDir -ChildPath "merge"
-        unzip -q $xapk.FullName -d $mergeDir | Out-Null
+    # Merge split APK
+    Write-Host -Object "Merging split APK..."
+    $mergeDir = Join-Path -Path $workDir -ChildPath "merge"
+    unzip -q $xapk.FullName -d $mergeDir | Out-Null
 
-        $mergedApk = Join-Path -Path $workDir -ChildPath "merged.apk"
-        java -jar "$BinPath/APKEditor.jar" merge -i $mergeDir -o $mergedApk | Out-Null
-        $inputApk = $mergedApk
-    }
-    elseif ($apk) {
-        $inputApk = $apk.FullName
-    }
-    else {
-        throw "No APK or XAPK found for $PackageName"
-    }
+    $mergedApk = Join-Path -Path $workDir -ChildPath "merged.apk"
+    java -jar "$BinPath/APKEditor.jar" merge -i $mergeDir -o $mergedApk | Out-Null
+    $inputApk = $mergedApk
 
     # Patch
     Write-Host -Object "Patching $PackageName..."
@@ -75,9 +66,7 @@ try {
     )
 
     # Add keystore if provided
-    if ($KeystorePath -and (Test-Path $KeystorePath)) {
-        $cliArgs += "--keystore=$KeystorePath"
-    }
+    $cliArgs += "--keystore=$KeystorePath"
 
     $cliArgs += $inputApk
 
@@ -88,7 +77,10 @@ try {
 }
 finally {
     # Cleanup work directory
-    if (Test-Path -Path $workDir) {
-        Remove-Item -Path $workDir -Recurse -Force
-    }
+    Remove-Item -Path $workDir -Recurse
+}
+catch {
+    Write-Error -Message $_.Exception.Message
+    Remove-Item -Path $workDir -Recurse
+    exit 1
 }

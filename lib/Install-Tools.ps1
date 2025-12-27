@@ -3,26 +3,24 @@
     Installs all required tools for ReVanced patching.
 
 .DESCRIPTION
-    Downloads and installs apkeep, APKEditor, and revanced-cli to /tmp/friendly-journey/bin.
+    Downloads and installs apkeep, APKEditor, and revanced-cli to $BinPath.
     Uses GITHUB_TOKEN for authentication if available.
 #>
 
 param(
-    [string]$BinPath = "/tmp/friendly-journey/bin"
+    [Parameter(Mandatory = $true)]
+    [string]$BinPath
 )
 
 $ErrorActionPreference = "Stop"
 $PSNativeCommandUseErrorActionPreference = $true
 
-# Create bin directory if needed
+# Create bin directory
 if (-not (Test-Path -Path $BinPath)) {
     New-Item -Path $BinPath -ItemType Directory -Force | Out-Null
 }
 
-$headers = @{}
-if ($env:GITHUB_TOKEN) {
-    $headers["Authorization"] = "token $env:GITHUB_TOKEN"
-}
+$headers["Authorization"] = "token $env:GITHUB_TOKEN"
 
 function Install-GitHubRelease {
     param(
@@ -50,7 +48,6 @@ function Install-GitHubRelease {
     }
 
     Write-Output -InputObject "Installed $DestinationName"
-    return $release.tag_name
 }
 
 # Install apkeep

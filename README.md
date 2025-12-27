@@ -40,6 +40,7 @@ apps:
 |`BUNNY_STORAGE_ACCESS_KEY`|Bunny Storage API key|
 |`BUNNY_STORAGE_ZONE_NAME`|Bunny Storage zone name|
 |`BUNNY_STORAGE_ENDPOINT`|Bunny Storage endpoint URL|
+|`FDROID_REPO_URL`|F-Droid repository URL|
 
 ### Creating Keystores
 

@@ -8,3 +8,7 @@ apps:
   - name: "YouTube"
     package: "com.google.android.youtube"
     patches_path: "youtube"
+
+  - name: "YouTube Music"
+    package: "com.google.android.apps.youtube.music"
+    patches_path: "music"
