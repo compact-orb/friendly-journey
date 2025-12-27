@@ -69,8 +69,9 @@ try {
         "--out=$outputApk"
     )
 
-    # Add keystore if provided
+    # Add keystore if provided (alias must match what was used during keystore generation)
     $cliArgs += "--keystore=$KeystorePath"
+    $cliArgs += "--keystore-entry-alias=release"
 
     # Add enable/disable patches (using short options with separate value for reliable parsing)
     foreach ($patch in $IncludePatches) {
