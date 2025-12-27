@@ -10,7 +10,6 @@
 param(
     [string]$ConfigPath = "./apps.yaml",
     [string]$TempPath = "/tmp/friendly-journey",
-    [string]$RepoPath = "$TempPath/repo",
     [string]$RepoKeyAlias = "release"
 )
 
@@ -29,9 +28,11 @@ if (-not (Test-Path -Path $TempPath)) {
     New-Item -Path $TempPath -ItemType Directory | Out-Null
 }
 
+$repoPath = Join-Path -Path $TempPath -ChildPath "repo"
+
 # Create repo directory
-if (-not (Test-Path -Path $RepoPath)) {
-    New-Item -Path $RepoPath -ItemType Directory | Out-Null
+if (-not (Test-Path -Path $repoPath)) {
+    New-Item -Path $repoPath -ItemType Directory | Out-Null
 }
 
 # Decode keystores from base64
@@ -50,9 +51,11 @@ $apps = $config.apps
 
 Write-Host -Object "Found $($apps.Count) app(s) to patch"
 
+$binPath = Join-Path -Path $TempPath -ChildPath "bin"
+
 # Install tools
 Write-Host -Object "`n=== Installing Tools ==="
-& "$PSScriptRoot/lib/Install-Tools.ps1" -BinPath "$TempPath/bin"
+& "$PSScriptRoot/lib/Install-Tools.ps1" -BinPath "$binPath"
 
 # Download patches
 Write-Host -Object "`n=== Downloading ReVanced Patches ==="
@@ -63,7 +66,7 @@ Write-Host -Object "`n=== Checking Repository Status ==="
 
 # Download entry.json from remote
 Write-Host -Object "Checking remote repo on Bunny Storage..."
-$remoteEntryPath = Join-Path -Path $RepoPath -ChildPath "entry.json"
+$remoteEntryPath = Join-Path -Path $repoPath -ChildPath "entry.json"
 & "$PSScriptRoot/lib/Get-BunnyFile.ps1" `
     -RemotePath "repo/entry.json" `
     -LocalPath $remoteEntryPath
@@ -73,7 +76,7 @@ Write-Host -Object "`n=== Downloading ReVanced MicroG ==="
 $microgInfo = & "$PSScriptRoot/lib/Get-RevancedMicroG.ps1" -OutputPath $TempPath
 
 $isUpToDate = & "$PSScriptRoot/lib/Test-RepoUpToDate.ps1" `
-    -RepoPath $RepoPath `
+    -RepoPath $repoPath `
     -LatestPatchesVersion $patchesInfo.Version `
     -LatestMicroGVersion $microgInfo.Version
 
@@ -104,21 +107,21 @@ foreach ($app in $apps) {
         -BinPath "$TempPath/bin"
 
     # Move to repo
-    $repoApkPath = Join-Path -Path $RepoPath -ChildPath "$($app.package).apk"
+    $repoApkPath = Join-Path -Path $repoPath -ChildPath "$($app.package).apk"
     Move-Item -Path $patchedApk -Destination $repoApkPath
     Write-Host -Object "Moved to $repoApkPath"
 }
 
 # Copy MicroG to repo (already downloaded for version comparison)
 Write-Host -Object "`n=== Adding MicroG to Repository ==="
-$microgRepoPath = Join-Path -Path $RepoPath -ChildPath "app.revanced.android.gms.apk"
+$microgRepoPath = Join-Path -Path $repoPath -ChildPath "app.revanced.android.gms.apk"
 Move-Item -Path $microgInfo.ApkPath -Destination $microgRepoPath -Force
 Write-Host -Object "Moved MicroG to $microgRepoPath"
 
 # Update F-Droid repo
 Write-Host -Object "`n=== Updating F-Droid Repository ==="
 & "$PSScriptRoot/lib/Update-FDroidRepo.ps1" `
-    -RepoPath $RepoPath `
+    -RepoPath $repoPath `
     -PatchesVersion $patchesInfo.Version `
     -MicroGVersion $microgInfo.Version `
     -KeystorePath $RepoKeystorePath `
@@ -127,7 +130,7 @@ Write-Host -Object "`n=== Updating F-Droid Repository ==="
 # Sync to Bunny Storage
 Write-Host -Object "`n=== Syncing to Bunny Storage ==="
 & "$PSScriptRoot/lib/Sync-BunnyRepo.ps1" `
-    -LocalRepoPath $RepoPath
+    -LocalRepoPath $repoPath
 
 # Cleanup
 Write-Host -Object "`n=== Cleanup ==="
