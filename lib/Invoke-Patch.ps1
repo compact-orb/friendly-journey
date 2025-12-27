@@ -19,6 +19,8 @@ param(
     [Parameter(Mandatory)]
     [string]$KeystorePath,  # Path to keystore for signing
 
+    [string]$PatchesVersion,  # Patches version for versionCode calculation
+
     [string]$OutputPath = "/tmp/friendly-journey",
 
     [string]$BinPath = "/tmp/friendly-journey/bin",
@@ -32,6 +34,46 @@ param(
 
 $ErrorActionPreference = "Stop"
 $PSNativeCommandUseErrorActionPreference = $true
+
+# Helper function to extract versionCode from APK using aapt2
+function Get-ApkVersionCode {
+    param([string]$ApkPath)
+    
+    # Find aapt2 in Android SDK (pre-installed on GitHub runners)
+    $androidHome = $env:ANDROID_HOME ?? "/usr/local/lib/android/sdk"
+    $aapt2 = Get-ChildItem -Path "$androidHome/build-tools" -Filter "aapt2" -Recurse | 
+    Sort-Object { $_.Directory.Name } -Descending | 
+    Select-Object -First 1
+    
+    if (-not $aapt2) {
+        Write-Host "Warning: aapt2 not found, cannot modify versionCode"
+        return $null
+    }
+    
+    $output = & $aapt2.FullName dump badging $ApkPath 2>&1
+    if ($output -match "versionCode='(\d+)'") {
+        return [long]$Matches[1]
+    }
+    return $null
+}
+
+# Helper function to calculate patches build number from version string
+function Get-PatchesBuildNumber {
+    param([string]$Version)
+    
+    if (-not $Version) { return 0 }
+    
+    # Parse version like "4.26.0" -> 426 or "4.26.1" -> 4261
+    $parts = $Version -split '\.'
+    if ($parts.Count -ge 2) {
+        # Use major * 100 + minor (* 10 if there's a patch version)
+        $major = [int]$parts[0]
+        $minor = [int]$parts[1]
+        $patch = if ($parts.Count -ge 3) { [int]$parts[2] } else { 0 }
+        return ($major * 100) + $minor + $patch
+    }
+    return 0
+}
 
 $workDir = Join-Path -Path $OutputPath -ChildPath "work-$PackageName"
 New-Item -Path $workDir -ItemType Directory | Out-Null
@@ -142,6 +184,21 @@ try {
         # Add keystore if provided (alias must match what was used during keystore generation)
         $cliArgs += "--keystore=$KeystorePath"
         $cliArgs += "--keystore-entry-alias=release"
+
+        # Calculate and apply new versionCode if patches version is provided
+        if ($PatchesVersion) {
+            $originalVersionCode = Get-ApkVersionCode -ApkPath $inputFile
+            if ($originalVersionCode) {
+                $patchesBuildNumber = Get-PatchesBuildNumber -Version $PatchesVersion
+                $newVersionCode = $originalVersionCode + $patchesBuildNumber
+                Write-Host "Modifying versionCode: $originalVersionCode + $patchesBuildNumber = $newVersionCode"
+                
+                # Enable "Change version code" patch with calculated value
+                $cliArgs += "-e"
+                $cliArgs += "Change version code"
+                $cliArgs += "-OversionCode=$newVersionCode"
+            }
+        }
 
         # Add enable/disable patches (using short options with separate value for reliable parsing)
         foreach ($patch in $IncludePatches) {

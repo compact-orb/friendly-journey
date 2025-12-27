@@ -11,6 +11,10 @@ on:
         description: 'Space-separated package names to mark as patched without actually patching (e.g. "com.google.android.youtube com.google.android.apps.youtube.music")'
         required: false
         type: string
+      force_repatch:
+        description: 'Space-separated package names to force repatch even if versions match (e.g. "com.google.android.youtube")'
+        required: false
+        type: string
 
 jobs:
   patch:
@@ -40,4 +44,5 @@ jobs:
           REPO_KEYSTORE_BASE64: ${{ secrets.REPO_KEYSTORE_BASE64 }}
           FDROID_REPO_URL: ${{ secrets.FDROID_REPO_URL }}
           MARK_PATCHED: ${{ inputs.mark_patched }}
+          FORCE_REPATCH: ${{ inputs.force_repatch }}
         run: ./FriendlyJourney.ps1

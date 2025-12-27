@@ -130,13 +130,20 @@ $microgInfo = & "$PSScriptRoot/lib/Get-RevancedMicroG.ps1" -OutputPath $TempPath
 # Extract configured package names
 $configuredPackages = @($apps | ForEach-Object { $_.package })
 
+# Parse force repatch packages from environment
+$forceRepatchPackages = @()
+if ($env:FORCE_REPATCH) {
+    $forceRepatchPackages = $env:FORCE_REPATCH -split '\s+' | Where-Object { $_ }
+    Write-Host -Object "Force repatch requested for: $($forceRepatchPackages -join ', ')"
+}
+
 $repoStatus = & "$PSScriptRoot/lib/Test-RepoUpToDate.ps1" `
     -RepoPath $repoPath `
     -LatestPatchesVersion $patchesInfo.Version `
     -LatestMicroGVersion $microgInfo.Version `
     -ConfiguredPackages $configuredPackages
 
-if ($repoStatus.IsFullyUpToDate) {
+if ($repoStatus.IsFullyUpToDate -and $forceRepatchPackages.Count -eq 0) {
     Write-Host -Object "Repository is up to date. Nothing to do."
     # Cleanup
     Remove-Item -Path $patchesInfo.RvpPath
@@ -150,9 +157,18 @@ if ($repoStatus.NeedsPatchesUpdate) {
     $appsToPatch = $apps
 }
 else {
-    # Only patch missing apps
-    Write-Host -Object "Only patching new apps: $($repoStatus.MissingPackages -join ', ')"
-    $appsToPatch = @($apps | Where-Object { $_.package -in $repoStatus.MissingPackages })
+    # Combine missing packages with force repatch packages
+    $packagesToPatch = @($repoStatus.MissingPackages) + $forceRepatchPackages | Select-Object -Unique
+    
+    if ($packagesToPatch.Count -gt 0) {
+        Write-Host -Object "Patching apps: $($packagesToPatch -join ', ')"
+        $appsToPatch = @($apps | Where-Object { $_.package -in $packagesToPatch })
+    }
+    else {
+        Write-Host -Object "No apps to patch."
+        Remove-Item -Path $patchesInfo.RvpPath
+        exit 0
+    }
 }
 
 # Patch selected apps
@@ -173,6 +189,7 @@ foreach ($app in $appsToPatch) {
         -PackageName $app.package `
         -Version $compatibleVersion `
         -PatchesPath $patchesInfo.RvpPath `
+        -PatchesVersion $patchesInfo.Version `
         -OutputPath $TempPath `
         -BinPath "$TempPath/bin" `
         -KeystorePath $ApkKeystorePath `
