@@ -106,6 +106,8 @@ foreach ($app in $apps) {
         -OutputPath $TempPath `
         -BinPath "$TempPath/bin" `
         -KeystorePath $ApkKeystorePath `
+        -GooglePlayEmail $env:GOOGLE_PLAY_EMAIL `
+        -GooglePlayAasToken $env:GOOGLE_PLAY_AAS_TOKEN `
         -IncludePatches ($app.include ?? @()) `
         -ExcludePatches ($app.exclude ?? @())
 

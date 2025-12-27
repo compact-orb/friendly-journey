@@ -23,6 +23,12 @@ param(
 
     [string]$BinPath = "/tmp/friendly-journey/bin",
 
+    [Parameter(Mandatory)]
+    [string]$GooglePlayEmail,  # Google account email for apkeep
+
+    [Parameter(Mandatory)]
+    [string]$GooglePlayAasToken,  # AAS token for Google Play downloads
+
     [string[]]$IncludePatches = @(),  # Patches to explicitly include
 
     [string[]]$ExcludePatches = @()   # Patches to exclude
@@ -37,12 +43,14 @@ New-Item -Path $workDir -ItemType Directory | Out-Null
 try {
     # Download APK
     Write-Host -Object "Downloading $PackageName..."
-    if ($Version) {
-        $apkeepArgs = @("--app", "$PackageName@$Version", "--options", "split_apk=true", $workDir)
-    }
-    else {
-        $apkeepArgs = @("--app", $PackageName, "--options", "split_apk=true", $workDir)
-    }
+    $apkeepArgs = @(
+        "--app", $(if ($Version) { "$PackageName@$Version" } else { $PackageName }),
+        "--download-source", "google-play",
+        "--email", $GooglePlayEmail,
+        "--token", $GooglePlayAasToken,
+        "--options", "split_apk=true",
+        $workDir
+    )
     & "$BinPath/apkeep" @apkeepArgs | Out-Null
 
     # Find downloaded file - check all split APK formats (xapk, apks, apkm) and regular apk
