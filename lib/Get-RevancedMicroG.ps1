@@ -11,7 +11,9 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$OutputPath,
 
-    [string]$CurrentVersion = ""
+    [string]$CurrentVersion = "",
+
+    [switch]$CheckVersionOnly
 )
 
 $ErrorActionPreference = "Stop"
@@ -45,6 +47,15 @@ if ($CurrentVersion) {
 }
 else {
     Write-Host -Object "MicroG version: $latestVersion"
+}
+
+# If only checking version, return without downloading
+if ($CheckVersionOnly) {
+    return @{
+        Version   = $latestVersion
+        ApkPath   = $null
+        IsUpdated = $true
+    }
 }
 
 # Find the signed APK (not Huawei variant)

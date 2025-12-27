@@ -121,9 +121,9 @@ $null = & "$PSScriptRoot/lib/Get-BunnyFile.ps1" `
     -RemotePath "fdroid/repo/entry.json" `
     -LocalPath $remoteEntryPath
 
-# Download latest MicroG for version comparison
-Write-Host -Object "`n=== Downloading ReVanced MicroG ==="
-$microgInfo = & "$PSScriptRoot/lib/Get-RevancedMicroG.ps1" -OutputPath $tempPath
+# Get latest MicroG version for comparison (defer download until we know if needed)
+Write-Host -Object "`n=== Checking ReVanced MicroG Version ==="
+$microgInfo = & "$PSScriptRoot/lib/Get-RevancedMicroG.ps1" -OutputPath $tempPath -CheckVersionOnly
 
 # Extract configured package names
 $configuredPackages = @($apps | ForEach-Object { $_.package })
@@ -150,8 +150,8 @@ if ($repoStatus.IsFullyUpToDate -and $forceRepatchPackages.Count -eq 0) {
 
 # Determine which apps to patch
 if ($repoStatus.NeedsPatchesUpdate) {
-    # Patches/MicroG changed - repatch all apps
-    Write-Host -Object "Patches or MicroG updated, will repatch all apps"
+    # Patches changed - repatch all apps
+    Write-Host -Object "Patches updated, will repatch all apps"
     $appsToPatch = $apps
 }
 else {
@@ -227,11 +227,18 @@ else {
     $patchedPackages = $configuredPackages
 }
 
-# Copy MicroG to repo (already downloaded for version comparison)
-Write-Host -Object "`n=== Adding MicroG to Repository ==="
-$microgRepoPath = Join-Path -Path $repoPath -ChildPath "app.revanced.android.gms.apk"
-Move-Item -Path $microgInfo.ApkPath -Destination $microgRepoPath -Force
-Write-Host -Object "Moved MicroG to $microgRepoPath"
+# Only add MicroG to repo if it needs updating
+if ($repoStatus.NeedsMicroGUpdate) {
+    Write-Host -Object "`n=== Adding MicroG to Repository ==="
+    # Download MicroG APK now that we know it's needed
+    $microgInfo = & "$PSScriptRoot/lib/Get-RevancedMicroG.ps1" -OutputPath $tempPath
+    $microgRepoPath = Join-Path -Path $repoPath -ChildPath "app.revanced.android.gms.apk"
+    Move-Item -Path $microgInfo.ApkPath -Destination $microgRepoPath -Force
+    Write-Host -Object "Moved MicroG to $microgRepoPath"
+}
+else {
+    Write-Host -Object "`n=== MicroG is up to date, skipping ==="
+}
 
 # Update F-Droid repo
 Write-Host -Object "`n=== Updating F-Droid Repository ==="

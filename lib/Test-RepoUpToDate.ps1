@@ -30,6 +30,7 @@ $entryPath = Join-Path -Path $RepoPath -ChildPath "entry.json"
 $result = @{
     IsFullyUpToDate    = $false
     NeedsPatchesUpdate = $true
+    NeedsMicroGUpdate  = $true
     MissingPackages    = $ConfiguredPackages
 }
 
@@ -47,7 +48,8 @@ try {
 
     $patchesMatch = $storedPatchesVersion -eq $LatestPatchesVersion
     $microgMatch = $storedMicroGVersion -eq $LatestMicroGVersion
-    $needsPatchesUpdate = -not ($patchesMatch -and $microgMatch)
+    $needsPatchesUpdate = -not $patchesMatch
+    $needsMicroGUpdate = -not $microgMatch
 
     # Find packages that are configured but not yet patched
     $missingPackages = @($ConfiguredPackages | Where-Object { $_ -notin $patchedPackages })
@@ -62,7 +64,7 @@ try {
         Write-Host -Object "Missing packages: $($missingPackages -join ', ')"
     }
 
-    $isFullyUpToDate = (-not $needsPatchesUpdate) -and ($missingPackages.Count -eq 0)
+    $isFullyUpToDate = (-not $needsPatchesUpdate) -and (-not $needsMicroGUpdate) -and ($missingPackages.Count -eq 0)
 
     if ($isFullyUpToDate) {
         Write-Host -Object "Repo is up to date (patches: $storedPatchesVersion, MicroG: $storedMicroGVersion, apps: $($patchedPackages.Count))"
@@ -71,6 +73,7 @@ try {
     return @{
         IsFullyUpToDate    = $isFullyUpToDate
         NeedsPatchesUpdate = $needsPatchesUpdate
+        NeedsMicroGUpdate  = $needsMicroGUpdate
         MissingPackages    = $missingPackages
     }
 }
