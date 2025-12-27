@@ -15,7 +15,10 @@ param(
 $ErrorActionPreference = "Stop"
 $PSNativeCommandUseErrorActionPreference = $true
 
-$headers["Authorization"] = "token $env:GITHUB_TOKEN"
+$headers = @{}
+if ($env:GITHUB_TOKEN) {
+    $headers["Authorization"] = "token $env:GITHUB_TOKEN"
+}
 
 $repo = "ReVanced/revanced-patches"
 $releasesUrl = "https://api.github.com/repos/$repo/releases/latest"

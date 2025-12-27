@@ -20,7 +20,10 @@ if (-not (Test-Path -Path $BinPath)) {
     New-Item -Path $BinPath -ItemType Directory -Force | Out-Null
 }
 
-$headers["Authorization"] = "token $env:GITHUB_TOKEN"
+$headers = @{}
+if ($env:GITHUB_TOKEN) {
+    $headers["Authorization"] = "token $env:GITHUB_TOKEN"
+}
 
 function Install-GitHubRelease {
     param(
