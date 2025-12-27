@@ -73,7 +73,8 @@ try {
         $inputApk = $apk.FullName
     }
     else {
-        Get-ChildItem -Path $workDir
+        Write-Host -Object "Directory contents of ${workDir}:"
+        Get-ChildItem -Path $workDir | Out-Host
         throw "No APK or XAPK file found in $workDir after download"
     }
 
