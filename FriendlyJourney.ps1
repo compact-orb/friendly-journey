@@ -7,14 +7,12 @@
     updates the F-Droid repository, and syncs to Bunny Storage.
 #>
 
-param(
-    [string]$ConfigPath = "./apps.yaml",
-    [string]$TempPath = "/tmp/friendly-journey",
-    [string]$RepoKeyAlias = "release"
-)
-
 $ErrorActionPreference = "Stop"
 $PSNativeCommandUseErrorActionPreference = $true
+
+$configPath = "./apps.yaml"
+$tempPath = "/tmp/friendly-journey"
+$repoKeyAlias = "release"
 
 # Install powershell-yaml module if not present
 if (-not (Get-Module -ListAvailable -Name powershell-yaml)) {
@@ -24,11 +22,11 @@ if (-not (Get-Module -ListAvailable -Name powershell-yaml)) {
 Import-Module -Name powershell-yaml
 
 # Create temp directory
-if (-not (Test-Path -Path $TempPath)) {
-    New-Item -Path $TempPath -ItemType Directory | Out-Null
+if (-not (Test-Path -Path $tempPath)) {
+    New-Item -Path $tempPath -ItemType Directory | Out-Null
 }
 
-$repoPath = Join-Path -Path $TempPath -ChildPath "repo"
+$repoPath = Join-Path -Path $tempPath -ChildPath "repo"
 
 # Create repo directory
 if (-not (Test-Path -Path $repoPath)) {
@@ -36,10 +34,10 @@ if (-not (Test-Path -Path $repoPath)) {
 }
 
 # Decode keystores from base64
-$ApkKeystorePath = Join-Path -Path $TempPath -ChildPath "Keystore.keystore"
+$ApkKeystorePath = Join-Path -Path $tempPath -ChildPath "Keystore.keystore"
 [System.IO.File]::WriteAllBytes($ApkKeystorePath, [Convert]::FromBase64String($env:APK_KEYSTORE_BASE64))
 Write-Host -Object "Decoded APK keystore from environment"
-$RepoKeystorePath = Join-Path -Path $TempPath -ChildPath "RepoKeystore.keystore"
+$RepoKeystorePath = Join-Path -Path $tempPath -ChildPath "RepoKeystore.keystore"
 [System.IO.File]::WriteAllBytes($RepoKeystorePath, [Convert]::FromBase64String($env:REPO_KEYSTORE_BASE64))
 Write-Host -Object "Decoded repo keystore from environment"
 
@@ -50,8 +48,8 @@ if (-not (Test-Path -Path $LocalApkPath)) {
 }
 
 # Load configuration
-Write-Host -Object "Loading configuration from $ConfigPath..."
-$configContent = Get-Content -Path $ConfigPath -Raw
+Write-Host -Object "Loading configuration from $configPath..."
+$configContent = Get-Content -Path $configPath -Raw
 $config = ConvertFrom-Yaml -Yaml $configContent
 $apps = $config.apps
 
@@ -70,8 +68,8 @@ if ($env:MARK_PATCHED) {
         -LocalPath $remoteEntryPath
 
     # Download patches and MicroG to get current versions
-    $patchesInfo = & "$PSScriptRoot/lib/Get-RevancedPatches.ps1" -OutputPath $TempPath
-    $microgInfo = & "$PSScriptRoot/lib/Get-RevancedMicroG.ps1" -OutputPath $TempPath
+    $patchesInfo = & "$PSScriptRoot/lib/Get-RevancedPatches.ps1" -OutputPath $tempPath
+    $microgInfo = & "$PSScriptRoot/lib/Get-RevancedMicroG.ps1" -OutputPath $tempPath
 
     # Read existing entry or create new one
     if (Test-Path -Path $remoteEntryPath) {
@@ -103,7 +101,7 @@ if ($env:MARK_PATCHED) {
     exit 0
 }
 
-$binPath = Join-Path -Path $TempPath -ChildPath "bin"
+$binPath = Join-Path -Path $tempPath -ChildPath "bin"
 
 # Install tools
 Write-Host -Object "`n=== Installing Tools ==="
@@ -111,7 +109,7 @@ Write-Host -Object "`n=== Installing Tools ==="
 
 # Download patches
 Write-Host -Object "`n=== Downloading ReVanced Patches ==="
-$patchesInfo = & "$PSScriptRoot/lib/Get-RevancedPatches.ps1" -OutputPath $TempPath
+$patchesInfo = & "$PSScriptRoot/lib/Get-RevancedPatches.ps1" -OutputPath $tempPath
 
 # Check if repo is up to date
 Write-Host -Object "`n=== Checking Repository Status ==="
@@ -125,7 +123,7 @@ $null = & "$PSScriptRoot/lib/Get-BunnyFile.ps1" `
 
 # Download latest MicroG for version comparison
 Write-Host -Object "`n=== Downloading ReVanced MicroG ==="
-$microgInfo = & "$PSScriptRoot/lib/Get-RevancedMicroG.ps1" -OutputPath $TempPath
+$microgInfo = & "$PSScriptRoot/lib/Get-RevancedMicroG.ps1" -OutputPath $tempPath
 
 # Extract configured package names
 $configuredPackages = @($apps | ForEach-Object { $_.package })
@@ -180,7 +178,7 @@ foreach ($app in $appsToPatch) {
 
     # Find compatible version using revanced-cli
     $compatibleVersion = & "$PSScriptRoot/lib/Get-CompatibleVersion.ps1" `
-        -CliPath "$TempPath/bin/revanced-cli.jar" `
+        -CliPath "$tempPath/bin/revanced-cli.jar" `
         -RvpPath $patchesInfo.RvpPath `
         -PackageName $app.package
 
@@ -190,8 +188,8 @@ foreach ($app in $appsToPatch) {
         -Version $compatibleVersion `
         -PatchesPath $patchesInfo.RvpPath `
         -PatchesVersion $patchesInfo.Version `
-        -OutputPath $TempPath `
-        -BinPath "$TempPath/bin" `
+        -OutputPath $tempPath `
+        -BinPath "$tempPath/bin" `
         -KeystorePath $ApkKeystorePath `
         -LocalApkPath $LocalApkPath `
         -IncludePatches ($app.include ?? @()) `
@@ -242,7 +240,7 @@ Write-Host -Object "`n=== Updating F-Droid Repository ==="
     -PatchesVersion $patchesInfo.Version `
     -MicroGVersion $microgInfo.Version `
     -KeystorePath $RepoKeystorePath `
-    -KeyAlias $RepoKeyAlias `
+    -KeyAlias $repoKeyAlias `
     -PatchedPackages $patchedPackages
 
 # Sync to Bunny Storage

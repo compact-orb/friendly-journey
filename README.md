@@ -8,17 +8,11 @@ friendly-journey patches Android apps using [ReVanced](https://revanced.app) and
 
 ## Features
 
+- GitHub Actions workflow for automation
 - Automatic patching using ReVanced CLI
 - F-Droid repository generation
 - Bunny Storage sync for CDN hosting
-- GitHub Actions workflow for automation
 - Keystore management via environment variables
-
-## Usage
-
-```powershell
-./FriendlyJourney.ps1 [-ConfigPath <path>] [-RepoPath <path>]
-```
 
 ### Configuration
 
@@ -28,7 +22,10 @@ Define apps to patch in `apps.yaml`:
 apps:
   - name: "YouTube"
     package: "com.google.android.youtube"
-    patches_path: "app/revanced/patches/youtube"
+    include:
+      - "Change header"
+    exclude:
+      - "Change header"
 ```
 
 ### Environment Variables
@@ -47,7 +44,6 @@ apps:
 If a specific app version is not available on APKPure or you want to provide your own APKs, place them in the `downloads` directory in the repository root.
 
 - Naming convention: `PackageName*Version*.apk` or `PackageName*.apk` if version doesn't matter.
-- Supports `.apk`, `.xapk`, `.apks`, and `.apkm`.
 - Example: `downloads/com.google.android.youtube_19.16.39.apk`
 
 The script will check this directory before attempting to download from apkeep.
@@ -111,11 +107,4 @@ To add the repository to F-Droid:
 3. Tap **+** and enter the repository URL
 4. Enable the repository and refresh
 
-The repository URL is your Bunny Storage CDN URL (e.g., `https://your-cdn.b-cdn.net`).
-
-## Requirements
-
-- PowerShell 7+
-- Java 17+
-- Docker or Podman (for fdroidserver)
-- Internet connection for downloading tools and APKs
+The repository URL is your Bunny Storage CDN URL (e.g., `https://your-cdn.b-cdn.net/fdroid/repo`).

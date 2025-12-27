@@ -2,6 +2,8 @@
 # Each app needs:
 #   - name: Human-readable name
 #   - package: Android package name for apkeep
+#   - include: List of patches to include
+#   - exclude: List of patches to exclude
 
 apps:
   - name: "YouTube"
