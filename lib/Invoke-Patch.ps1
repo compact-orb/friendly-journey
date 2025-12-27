@@ -39,6 +39,12 @@ $PSNativeCommandUseErrorActionPreference = $true
 function Get-ApkVersionCode {
     param([string]$ApkPath)
     
+    # Only works on actual .apk files, not xapk/apks/apkm
+    if ($ApkPath -notmatch '\.apk$') {
+        Write-Host -Object "Skipping versionCode extraction for non-APK file: $ApkPath"
+        return $null
+    }
+    
     # Find aapt2 in Android SDK (pre-installed on GitHub runners)
     $androidHome = $env:ANDROID_HOME ?? "/usr/local/lib/android/sdk"
     $aapt2 = Get-ChildItem -Path "$androidHome/build-tools" -Filter "aapt2" -Recurse | 
@@ -46,15 +52,24 @@ function Get-ApkVersionCode {
     Select-Object -First 1
     
     if (-not $aapt2) {
-        Write-Host "Warning: aapt2 not found, cannot modify versionCode"
+        Write-Warning -Message "aapt2 not found, cannot modify versionCode"
         return $null
     }
     
-    $output = & $aapt2.FullName dump badging $ApkPath 2>&1
-    if ($output -match "versionCode='(\d+)'") {
-        return [long]$Matches[1]
+    try {
+        $output = & $aapt2.FullName dump badging $ApkPath 2>&1 | Out-String
+        if ($output -match "versionCode='(\d+)'") {
+            $versionCode = [long]$Matches[1]
+            Write-Host -Object "Extracted versionCode: $versionCode from $([System.IO.Path]::GetFileName($ApkPath))"
+            return $versionCode
+        }
+        Write-Warning -Message "Could not extract versionCode from $ApkPath"
+        return $null
     }
-    return $null
+    catch {
+        Write-Warning -Message "Error extracting versionCode: $_"
+        return $null
+    }
 }
 
 # Helper function to calculate patches build number from version string
@@ -140,7 +155,7 @@ try {
                 Write-Host -Object "Downloaded: $newName"
             }
             else {
-                Write-Host -Object "Warning: No APK found for architecture $arch"
+                Write-Warning -Message "No APK found for architecture $arch"
             }
         }
 
