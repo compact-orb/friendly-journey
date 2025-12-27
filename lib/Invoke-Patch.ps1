@@ -78,14 +78,25 @@ function Get-PatchesBuildNumber {
     
     if (-not $Version) { return 0 }
     
+    # Strip 'v' prefix if present and any suffix after hyphen (e.g., "v5.0.0-beta" -> "5.0.0")
+    $cleanVersion = $Version -replace '^v', '' -replace '-.*$', ''
+    
     # Parse version like "4.26.0" -> 426 or "4.26.1" -> 4261
-    $parts = $Version -split '\.'
+    $parts = $cleanVersion -split '\.'
     if ($parts.Count -ge 2) {
-        # Use major * 100 + minor (* 10 if there's a patch version)
-        $major = [int]$parts[0]
-        $minor = [int]$parts[1]
-        $patch = if ($parts.Count -ge 3) { [int]$parts[2] } else { 0 }
-        return ($major * 100) + $minor + $patch
+        try {
+            # Extract only numeric portions
+            $major = [int]($parts[0] -replace '\D', '')
+            $minor = [int]($parts[1] -replace '\D', '')
+            $patch = if ($parts.Count -ge 3) { [int]($parts[2] -replace '\D', '') } else { 0 }
+            $buildNumber = ($major * 100) + $minor + $patch
+            Write-Host -Object "Patches build number: $Version -> $buildNumber"
+            return $buildNumber
+        }
+        catch {
+            Write-Warning -Message "Could not parse patches version '$Version': $_"
+            return 0
+        }
     }
     return 0
 }
