@@ -21,7 +21,11 @@ param(
 
     [string]$OutputPath = "/tmp/friendly-journey",
 
-    [string]$BinPath = "/tmp/friendly-journey/bin"
+    [string]$BinPath = "/tmp/friendly-journey/bin",
+
+    [string[]]$IncludePatches = @(),  # Patches to explicitly include
+
+    [string[]]$ExcludePatches = @()   # Patches to exclude
 )
 
 $ErrorActionPreference = "Stop"
@@ -67,6 +71,14 @@ try {
 
     # Add keystore if provided
     $cliArgs += "--keystore=$KeystorePath"
+
+    # Add include/exclude patches
+    foreach ($patch in $IncludePatches) {
+        $cliArgs += "--include=$patch"
+    }
+    foreach ($patch in $ExcludePatches) {
+        $cliArgs += "--exclude=$patch"
+    }
 
     $cliArgs += $inputApk
 

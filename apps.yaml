@@ -8,6 +8,8 @@ apps:
   - name: "YouTube"
     package: "com.google.android.youtube"
     patches_path: "youtube"
+    exclude:
+      - "Change header"
 
   - name: "YouTube Music"
     package: "com.google.android.apps.youtube.music"
