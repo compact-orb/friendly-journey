@@ -5,6 +5,7 @@
 .DESCRIPTION
     Loads app configuration, checks if repo needs updating, patches all apps,
     updates the F-Droid repository, and syncs to Bunny Storage.
+    Supports multiple patch sources (official ReVanced, anddea, etc.)
 #>
 
 $ErrorActionPreference = "Stop"
@@ -13,6 +14,7 @@ $PSNativeCommandUseErrorActionPreference = $true
 $configPath = "./apps.yaml"
 $tempPath = "/tmp/friendly-journey"
 $repoKeyAlias = "release"
+$defaultSource = "ReVanced/revanced-patches"
 
 # Install powershell-yaml module if not present
 if (-not (Get-Module -ListAvailable -Name powershell-yaml)) {
@@ -55,6 +57,10 @@ $apps = $config.apps
 
 Write-Host -Object "Found $($apps.Count) app(s) to patch"
 
+# Determine which sources are needed
+$sourcesNeeded = @($apps | ForEach-Object { $_.source ?? $defaultSource } | Select-Object -Unique)
+Write-Host -Object "Patch sources needed: $($sourcesNeeded -join ', ')"
+
 # Handle mark-only mode (for bootstrapping existing repos)
 if ($env:MARK_PATCHED) {
     Write-Host -Object "`n=== Mark-Only Mode ==="
@@ -67,8 +73,13 @@ if ($env:MARK_PATCHED) {
         -RemotePath "fdroid/repo/entry.json" `
         -LocalPath $remoteEntryPath
 
-    # Download patches and MicroG to get current versions
-    $patchesInfo = & "$PSScriptRoot/lib/Get-RevancedPatches.ps1" -OutputPath $tempPath
+    # Download patches from all needed sources to get current versions
+    $sourceVersions = @{}
+    foreach ($source in $sourcesNeeded) {
+        $patchesInfo = & "$PSScriptRoot/lib/Get-PatchSource.ps1" -Source $source -OutputPath $tempPath
+        $sourceVersions[$source] = $patchesInfo.Version
+    }
+
     $microgInfo = & "$PSScriptRoot/lib/Get-RevancedMicroG.ps1" -OutputPath $tempPath
 
     # Read existing entry or create new one
@@ -83,13 +94,13 @@ if ($env:MARK_PATCHED) {
 
     # Write updated entry.json
     $entry = @{
-        patchesVersion  = $patchesInfo.Version
+        sources         = $sourceVersions
         microgVersion   = $microgInfo.Version
         patchedPackages = $allPackages
         timestamp       = (Get-Date -Format "o" -AsUTC)
         repoName        = "friendly-journey"
     }
-    $entry | ConvertTo-Json | Set-Content -Path $remoteEntryPath
+    $entry | ConvertTo-Json -Depth 3 | Set-Content -Path $remoteEntryPath
     Write-Host -Object "Updated entry.json with patched packages: $($allPackages -join ', ')"
 
     # Sync just the entry.json to Bunny Storage
@@ -107,9 +118,17 @@ $binPath = Join-Path -Path $tempPath -ChildPath "bin"
 Write-Host -Object "`n=== Installing Tools ==="
 & "$PSScriptRoot/lib/Install-Tools.ps1" -BinPath "$binPath"
 
-# Download patches
-Write-Host -Object "`n=== Downloading ReVanced Patches ==="
-$patchesInfo = & "$PSScriptRoot/lib/Get-RevancedPatches.ps1" -OutputPath $tempPath
+# Download patches from all needed sources
+Write-Host -Object "`n=== Downloading Patches from All Sources ==="
+$patchesBySource = @{}
+$sourceVersions = @{}
+
+foreach ($source in $sourcesNeeded) {
+    Write-Host -Object "Fetching patches from $source..."
+    $patchesInfo = & "$PSScriptRoot/lib/Get-PatchSource.ps1" -Source $source -OutputPath $tempPath
+    $patchesBySource[$source] = $patchesInfo
+    $sourceVersions[$source] = $patchesInfo.Version
+}
 
 # Check if repo is up to date
 Write-Host -Object "`n=== Checking Repository Status ==="
@@ -137,36 +156,62 @@ if ($env:FORCE_REPATCH) {
 
 $repoStatus = & "$PSScriptRoot/lib/Test-RepoUpToDate.ps1" `
     -RepoPath $repoPath `
-    -LatestPatchesVersion $patchesInfo.Version `
+    -LatestSourceVersions $sourceVersions `
     -LatestMicroGVersion $microgInfo.Version `
     -ConfiguredPackages $configuredPackages
 
 if ($repoStatus.IsFullyUpToDate -and $forceRepatchPackages.Count -eq 0) {
     Write-Host -Object "Repository is up to date. Nothing to do."
     # Cleanup
-    Remove-Item -Path $patchesInfo.RvpPath
+    foreach ($source in $patchesBySource.Keys) {
+        Remove-Item -Path $patchesBySource[$source].RvpPath -Force -ErrorAction SilentlyContinue
+    }
     exit 0
 }
 
-# Determine which apps to patch
-if ($repoStatus.NeedsPatchesUpdate) {
-    # Patches changed - repatch all apps
-    Write-Host -Object "Patches updated, will repatch all apps"
-    $appsToPatch = $apps
+# Determine which apps to patch based on source updates
+$appsToPatch = @()
+$sourcesNeedingUpdate = $repoStatus.SourcesNeedingUpdate
+
+if ($sourcesNeedingUpdate.Count -gt 0) {
+    # Some sources updated - repatch apps using those sources
+    foreach ($app in $apps) {
+        $appSource = $app.source ?? $defaultSource
+        if ($appSource -in $sourcesNeedingUpdate) {
+            Write-Host -Object "Source '$appSource' updated, will repatch $($app.name)"
+            $appsToPatch += $app
+        }
+    }
 }
-else {
-    # Combine missing packages with force repatch packages
-    $packagesToPatch = @($repoStatus.MissingPackages) + $forceRepatchPackages | Select-Object -Unique
-    
-    if ($packagesToPatch.Count -gt 0) {
-        Write-Host -Object "Patching apps: $($packagesToPatch -join ', ')"
-        $appsToPatch = @($apps | Where-Object { $_.package -in $packagesToPatch })
+
+# Add missing packages
+if ($repoStatus.MissingPackages.Count -gt 0) {
+    $missingApps = @($apps | Where-Object { $_.package -in $repoStatus.MissingPackages })
+    foreach ($app in $missingApps) {
+        if ($app -notin $appsToPatch) {
+            Write-Host -Object "Adding missing app: $($app.name)"
+            $appsToPatch += $app
+        }
     }
-    else {
-        Write-Host -Object "No apps to patch."
-        Remove-Item -Path $patchesInfo.RvpPath
-        exit 0
+}
+
+# Add force repatch packages
+if ($forceRepatchPackages.Count -gt 0) {
+    $forceApps = @($apps | Where-Object { $_.package -in $forceRepatchPackages })
+    foreach ($app in $forceApps) {
+        if ($app -notin $appsToPatch) {
+            Write-Host -Object "Force repatching: $($app.name)"
+            $appsToPatch += $app
+        }
     }
+}
+
+if ($appsToPatch.Count -eq 0) {
+    Write-Host -Object "No apps to patch."
+    foreach ($source in $patchesBySource.Keys) {
+        Remove-Item -Path $patchesBySource[$source].RvpPath -Force -ErrorAction SilentlyContinue
+    }
+    exit 0
 }
 
 # Patch selected apps
@@ -174,7 +219,10 @@ Write-Host -Object "`n=== Patching Apps ==="
 $patchedPackages = @()
 
 foreach ($app in $appsToPatch) {
-    Write-Host -Object "`n--- Patching $($app.name) ---"
+    $appSource = $app.source ?? $defaultSource
+    $patchesInfo = $patchesBySource[$appSource]
+
+    Write-Host -Object "`n--- Patching $($app.name) (source: $appSource) ---"
 
     # Find compatible version using revanced-cli
     $compatibleVersion = & "$PSScriptRoot/lib/Get-CompatibleVersion.ps1" `
@@ -200,8 +248,6 @@ foreach ($app in $appsToPatch) {
         if (-not (Test-Path $apk)) { continue }
 
         $apkName = [System.IO.Path]::GetFileName($apk)
-        # Unique naming to avoid collisions if not already handled
-        # (Invoke-Patch adds original filename which includes arch usually)
 
         $repoApkPath = Join-Path -Path $repoPath -ChildPath $apkName
         Move-Item -Path $apk -Destination $repoApkPath -Force
@@ -212,9 +258,9 @@ foreach ($app in $appsToPatch) {
     $patchedPackages += $app.package
 }
 
-# Combine with existing patched packages if we're only adding new apps
-if (-not $repoStatus.NeedsPatchesUpdate) {
-    # Read existing patched packages from entry.json
+# Combine with existing patched packages if we're only adding/updating some apps
+if ($sourcesNeedingUpdate.Count -lt $sourcesNeeded.Count) {
+    # Not all sources updated - preserve existing packages from unchanged sources
     $entryPath = Join-Path -Path $repoPath -ChildPath "entry.json"
     if (Test-Path -Path $entryPath) {
         $existingEntry = Get-Content -Path $entryPath -Raw | ConvertFrom-Json
@@ -223,7 +269,7 @@ if (-not $repoStatus.NeedsPatchesUpdate) {
     }
 }
 else {
-    # We're repatching all, so use all configured packages
+    # All sources updated, use all configured packages
     $patchedPackages = $configuredPackages
 }
 
@@ -242,7 +288,7 @@ else {
 
 # If we didn't repatch everything, we need to restore existing APKs from storage
 # so that F-Droid doesn't delete them (due to --delete-unknown)
-if (-not $repoStatus.NeedsPatchesUpdate) {
+if ($sourcesNeedingUpdate.Count -lt $sourcesNeeded.Count -or $repoStatus.MissingPackages.Count -gt 0 -or $forceRepatchPackages.Count -gt 0) {
     Write-Host -Object "`n=== Restoring Existing APKs from Storage ==="
     & "$PSScriptRoot/lib/Restore-BunnyRepo.ps1" -LocalRepoPath $repoPath
 }
@@ -251,7 +297,7 @@ if (-not $repoStatus.NeedsPatchesUpdate) {
 Write-Host -Object "`n=== Updating F-Droid Repository ==="
 & "$PSScriptRoot/lib/Update-FDroidRepo.ps1" `
     -RepoPath $repoPath `
-    -PatchesVersion $patchesInfo.Version `
+    -SourceVersions $sourceVersions `
     -MicroGVersion $microgInfo.Version `
     -KeystorePath $RepoKeystorePath `
     -KeyAlias $repoKeyAlias `
@@ -265,7 +311,10 @@ Write-Host -Object "`n=== Syncing to Bunny Storage ==="
 
 # Cleanup
 Write-Host -Object "`n=== Cleanup ==="
-Remove-Item -Path $patchesInfo.RvpPath -Force -ErrorAction SilentlyContinue
+foreach ($source in $patchesBySource.Keys) {
+    Remove-Item -Path $patchesBySource[$source].RvpPath -Force -ErrorAction SilentlyContinue
+}
 
 Write-Host -Object "`n=== Done ==="
-Write-Host -Object "Repository updated with patches $($patchesInfo.Version), MicroG $($microgInfo.Version)"
+$sourcesSummary = ($sourceVersions.GetEnumerator() | ForEach-Object { "$($_.Key): $($_.Value)" }) -join ", "
+Write-Host -Object "Repository updated with sources: $sourcesSummary, MicroG $($microgInfo.Version)"

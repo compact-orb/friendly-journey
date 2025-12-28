@@ -4,7 +4,7 @@
 
 .DESCRIPTION
     Uses fdroidserver installed via Python venv to generate and sign the
-    F-Droid repository index. Stores patches and MicroG versions in entry.json
+    F-Droid repository index. Stores patches sources and MicroG versions in entry.json
     for version checking.
 #>
 
@@ -13,7 +13,7 @@ param(
     [string]$RepoPath,
 
     [Parameter(Mandatory)]
-    [string]$PatchesVersion,
+    [hashtable]$SourceVersions,  # @{ "ReVanced/revanced-patches" = "v5.47.0"; "anddea/revanced-patches" = "v3.14.0" }
 
     [Parameter(Mandatory)]
     [string]$MicroGVersion,
@@ -102,16 +102,16 @@ Invoke-Fdroid -Arguments @("update", "--create-metadata", "--delete-unknown")
 
 Write-Output -InputObject "F-Droid repository updated"
 
-# Write entry.json with patches version for version checking
+# Write entry.json with sources versions for version checking
 $entryPath = Join-Path -Path $RepoPath -ChildPath "entry.json"
 $entry = @{
-    patchesVersion  = $PatchesVersion
+    sources         = $SourceVersions
     microgVersion   = $MicroGVersion
     patchedPackages = $PatchedPackages
     timestamp       = (Get-Date -Format "o" -AsUTC)
     repoName        = $RepoName
 }
-$entry | ConvertTo-Json | Set-Content -Path $entryPath
+$entry | ConvertTo-Json -Depth 3 | Set-Content -Path $entryPath
 Write-Output -InputObject "Updated $entryPath"
 
 Write-Output -InputObject "F-Droid repo updated successfully"

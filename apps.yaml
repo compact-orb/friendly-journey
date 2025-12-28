@@ -2,8 +2,10 @@
 # Each app needs:
 #   - name: Human-readable name
 #   - package: Android package name for apkeep
-#   - include: List of patches to include
-#   - exclude: List of patches to exclude
+#   - source: (optional) Patch source repo, defaults to "ReVanced/revanced-patches"
+#             Other supported sources: "anddea/revanced-patches"
+#   - include: (optional) List of patches to include
+#   - exclude: (optional) List of patches to exclude
 
 apps:
   - name: "YouTube"
@@ -16,5 +18,4 @@ apps:
 
   - name: "Spotify"
     package: "com.spotify.music"
-    exclude:
-      - "Sanitize sharing links"
+    source: "anddea/revanced-patches"
