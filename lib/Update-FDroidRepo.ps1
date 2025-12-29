@@ -27,6 +27,8 @@ param(
     [Parameter(Mandatory)]
     [string[]]$PatchedPackages,
 
+    [hashtable]$PackageVersions = @{},  # @{ "com.spotify.music" = "9.0.0.487" } - versions actually patched
+
     [string]$RepoName = "friendly-journey",
 
     [string]$RepoDescription = "friendly-journey patches Android apps using ReVanced and publishes them to a self-hosted F-Droid repository. It supports automatic updates and syncs to Bunny Storage for CDN distribution."
@@ -108,6 +110,7 @@ $entry = @{
     sources         = $SourceVersions
     microgVersion   = $MicroGVersion
     patchedPackages = $PatchedPackages
+    packageVersions = $PackageVersions
     timestamp       = (Get-Date -Format "o" -AsUTC)
     repoName        = $RepoName
 }

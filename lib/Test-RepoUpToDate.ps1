@@ -19,7 +19,9 @@ param(
     [string]$LatestMicroGVersion,
 
     [Parameter(Mandatory)]
-    [string[]]$ConfiguredPackages
+    [string[]]$ConfiguredPackages,
+
+    [hashtable]$LatestAppVersions = @{}  # @{ "com.spotify.music" = "9.0.0.487" } for apps without version constraints
 )
 
 $ErrorActionPreference = "Stop"
@@ -28,11 +30,12 @@ $entryPath = Join-Path -Path $RepoPath -ChildPath "entry.json"
 
 # Default result for new/missing repo
 $result = @{
-    IsFullyUpToDate      = $false
-    NeedsPatchesUpdate   = $true
-    SourcesNeedingUpdate = @($LatestSourceVersions.Keys)
-    NeedsMicroGUpdate    = $true
-    MissingPackages      = $ConfiguredPackages
+    IsFullyUpToDate              = $false
+    NeedsPatchesUpdate           = $true
+    SourcesNeedingUpdate         = @($LatestSourceVersions.Keys)
+    NeedsMicroGUpdate            = $true
+    MissingPackages              = $ConfiguredPackages
+    PackagesNeedingVersionUpdate = @($LatestAppVersions.Keys)
 }
 
 if (-not (Test-Path -Path $entryPath)) {
@@ -89,7 +92,37 @@ try {
         Write-Host -Object "Missing packages: $($missingPackages -join ', ')"
     }
 
-    $isFullyUpToDate = (-not $needsPatchesUpdate) -and (-not $needsMicroGUpdate) -and ($missingPackages.Count -eq 0)
+    # Check for version updates on apps without constraints
+    $storedVersions = @{}
+    if ($entry.packageVersions) {
+        $entry.packageVersions.PSObject.Properties | ForEach-Object {
+            $storedVersions[$_.Name] = $_.Value
+        }
+    }
+
+    $packagesNeedingVersionUpdate = @()
+    foreach ($pkg in $LatestAppVersions.Keys) {
+        $storedVersion = $storedVersions[$pkg]
+        $latestVersion = $LatestAppVersions[$pkg]
+
+        if (-not $storedVersion) {
+            # No stored version - will be handled by missing packages or first patch
+            continue
+        }
+
+        if ($storedVersion -ne $latestVersion) {
+            Write-Host -Object "App '$pkg' has newer version: $storedVersion -> $latestVersion"
+            $packagesNeedingVersionUpdate += $pkg
+        }
+        else {
+            Write-Host -Object "App '$pkg' version is current: $storedVersion"
+        }
+    }
+
+    $isFullyUpToDate = (-not $needsPatchesUpdate) -and `
+    (-not $needsMicroGUpdate) -and `
+    ($missingPackages.Count -eq 0) -and `
+    ($packagesNeedingVersionUpdate.Count -eq 0)
 
     if ($isFullyUpToDate) {
         $sourcesSummary = ($storedSources.GetEnumerator() | ForEach-Object { "$($_.Key): $($_.Value)" }) -join ", "
@@ -97,11 +130,12 @@ try {
     }
 
     return @{
-        IsFullyUpToDate      = $isFullyUpToDate
-        NeedsPatchesUpdate   = $needsPatchesUpdate
-        SourcesNeedingUpdate = $sourcesNeedingUpdate
-        NeedsMicroGUpdate    = $needsMicroGUpdate
-        MissingPackages      = $missingPackages
+        IsFullyUpToDate              = $isFullyUpToDate
+        NeedsPatchesUpdate           = $needsPatchesUpdate
+        SourcesNeedingUpdate         = $sourcesNeedingUpdate
+        NeedsMicroGUpdate            = $needsMicroGUpdate
+        MissingPackages              = $missingPackages
+        PackagesNeedingVersionUpdate = $packagesNeedingVersionUpdate
     }
 }
 catch {

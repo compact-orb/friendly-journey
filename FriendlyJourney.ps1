@@ -130,6 +130,34 @@ foreach ($source in $sourcesNeeded) {
     $sourceVersions[$source] = $patchesInfo.Version
 }
 
+# Determine version constraints for all apps and query latest versions for unconstrained ones
+Write-Host -Object "`n=== Checking App Version Constraints ==="
+$appVersionConstraints = @{}  # @{ "com.spotify.music" = $null; "com.google.android.youtube" = "19.34.42" }
+$latestAppVersions = @{}  # Only for apps without version constraints
+
+foreach ($app in $apps) {
+    $appSource = $app.source ?? $defaultSource
+    $patchesInfo = $patchesBySource[$appSource]
+
+    $compatibleVersion = & "$PSScriptRoot/lib/Get-CompatibleVersion.ps1" `
+        -CliPath "$tempPath/bin/revanced-cli.jar" `
+        -RvpPath $patchesInfo.RvpPath `
+        -PackageName $app.package
+
+    $appVersionConstraints[$app.package] = $compatibleVersion
+
+    if (-not $compatibleVersion) {
+        # No version constraint - query latest available version
+        Write-Host -Object "App '$($app.package)' has no version constraints, checking latest version..."
+        $latestInfo = & "$PSScriptRoot/lib/Get-LatestApkVersion.ps1" `
+            -PackageName $app.package `
+            -BinPath $binPath
+        if ($latestInfo.Version) {
+            $latestAppVersions[$app.package] = $latestInfo.Version
+        }
+    }
+}
+
 # Check if repo is up to date
 Write-Host -Object "`n=== Checking Repository Status ==="
 
@@ -158,7 +186,8 @@ $repoStatus = & "$PSScriptRoot/lib/Test-RepoUpToDate.ps1" `
     -RepoPath $repoPath `
     -LatestSourceVersions $sourceVersions `
     -LatestMicroGVersion $microgInfo.Version `
-    -ConfiguredPackages $configuredPackages
+    -ConfiguredPackages $configuredPackages `
+    -LatestAppVersions $latestAppVersions
 
 if ($repoStatus.IsFullyUpToDate -and $forceRepatchPackages.Count -eq 0) {
     Write-Host -Object "Repository is up to date. Nothing to do."
@@ -206,6 +235,17 @@ if ($forceRepatchPackages.Count -gt 0) {
     }
 }
 
+# Add packages needing version update (unconstrained apps with newer versions available)
+if ($repoStatus.PackagesNeedingVersionUpdate.Count -gt 0) {
+    $versionUpdateApps = @($apps | Where-Object { $_.package -in $repoStatus.PackagesNeedingVersionUpdate })
+    foreach ($app in $versionUpdateApps) {
+        if ($app -notin $appsToPatch) {
+            Write-Host -Object "App version update available: $($app.name)"
+            $appsToPatch += $app
+        }
+    }
+}
+
 if ($appsToPatch.Count -eq 0) {
     Write-Host -Object "No apps to patch."
     foreach ($source in $patchesBySource.Keys) {
@@ -217,6 +257,7 @@ if ($appsToPatch.Count -eq 0) {
 # Patch selected apps
 Write-Host -Object "`n=== Patching Apps ==="
 $patchedPackages = @()
+$packageVersions = @{}  # Track versions actually patched for unconstrained apps
 
 foreach ($app in $appsToPatch) {
     $appSource = $app.source ?? $defaultSource
@@ -225,10 +266,12 @@ foreach ($app in $appsToPatch) {
     Write-Host -Object "`n--- Patching $($app.name) (source: $appSource) ---"
 
     # Find compatible version using revanced-cli
-    $compatibleVersion = & "$PSScriptRoot/lib/Get-CompatibleVersion.ps1" `
-        -CliPath "$tempPath/bin/revanced-cli.jar" `
-        -RvpPath $patchesInfo.RvpPath `
-        -PackageName $app.package
+    $compatibleVersion = $appVersionConstraints[$app.package]
+
+    # Track version for unconstrained apps
+    if (-not $compatibleVersion -and $latestAppVersions.ContainsKey($app.package)) {
+        $packageVersions[$app.package] = $latestAppVersions[$app.package]
+    }
 
     # Patch the app
     $patchedApks = & "$PSScriptRoot/lib/Invoke-Patch.ps1" `
@@ -266,6 +309,15 @@ if ($sourcesNeedingUpdate.Count -lt $sourcesNeeded.Count) {
         $existingEntry = Get-Content -Path $entryPath -Raw | ConvertFrom-Json
         $existingPackages = $existingEntry.patchedPackages ?? @()
         $patchedPackages = @($existingPackages) + $patchedPackages | Select-Object -Unique
+
+        # Merge existing package versions with newly patched versions
+        if ($existingEntry.packageVersions) {
+            $existingEntry.packageVersions.PSObject.Properties | ForEach-Object {
+                if (-not $packageVersions.ContainsKey($_.Name)) {
+                    $packageVersions[$_.Name] = $_.Value
+                }
+            }
+        }
     }
 }
 else {
@@ -288,7 +340,10 @@ else {
 
 # If we didn't repatch everything, we need to restore existing APKs from storage
 # so that F-Droid doesn't delete them (due to --delete-unknown)
-if ($sourcesNeedingUpdate.Count -lt $sourcesNeeded.Count -or $repoStatus.MissingPackages.Count -gt 0 -or $forceRepatchPackages.Count -gt 0) {
+if ($sourcesNeedingUpdate.Count -lt $sourcesNeeded.Count -or `
+        $repoStatus.MissingPackages.Count -gt 0 -or `
+        $forceRepatchPackages.Count -gt 0 -or `
+        $repoStatus.PackagesNeedingVersionUpdate.Count -gt 0) {
     Write-Host -Object "`n=== Restoring Existing APKs from Storage ==="
     & "$PSScriptRoot/lib/Restore-BunnyRepo.ps1" -LocalRepoPath $repoPath
 }
@@ -301,7 +356,8 @@ Write-Host -Object "`n=== Updating F-Droid Repository ==="
     -MicroGVersion $microgInfo.Version `
     -KeystorePath $RepoKeystorePath `
     -KeyAlias $repoKeyAlias `
-    -PatchedPackages $patchedPackages
+    -PatchedPackages $patchedPackages `
+    -PackageVersions $packageVersions
 
 # Sync to Bunny Storage
 Write-Host -Object "`n=== Syncing to Bunny Storage ==="
